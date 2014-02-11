@@ -84,9 +84,6 @@ These are VHDL files for modules that are useful in a variety of larger designs.
     Vga.vhd:
         Modules for generating bitmapped and character mapped displays on VGA monitors.
         
-    XuLA2.ucf:
-        Pin assignments for the XuLA2  board.
-        
 
 How to Use This Library
 =========================
