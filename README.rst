@@ -77,10 +77,6 @@ These are VHDL files for modules that are useful in a variety of larger designs.
         A module that tests the functioning of a XuLA board by writing a random stream of values into SDRAM
         and then reading it back and comparing it to the original.
 
-    UserInstrJtag.vhd:
-        A module that accepts commands and data via the FPGA JTAG port and sends them to modules in the
-        FPGA. (Deprecated - superseded by the HostIo modules.)
-
     Vga.vhd:
         Modules for generating bitmapped and character mapped displays on VGA monitors.
         
