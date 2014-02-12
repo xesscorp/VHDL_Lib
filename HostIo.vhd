@@ -27,7 +27,7 @@
 library IEEE, XESS;
 use IEEE.std_logic_1164.all;
 use XESS.CommonPckg.all;
-use XESS.XessBoardPckg.all;
+use work.XessBoardPckg.all;
 
 package HostIoPckg is
 
@@ -191,8 +191,8 @@ library IEEE, UNISIM, XESS;
 use IEEE.std_logic_1164.all;
 use UNISIM.VComponents.all;
 use XESS.CommonPckg.all;
-use XESS.XessBoardPckg.all;
 use XESS.HostIoPckg.all;
+use work.XessBoardPckg.all;
 
 entity BscanToHostIo is
   generic (
@@ -269,7 +269,7 @@ begin
              or tdor_i or tdos_i or tdot_i or tdou_i or tdov_i or tdow_i or tdox_i or tdoy_i or tdoz_i;
 
     -- Select the appropriate sel signal based upon which USER instruction this module responds to.
-    bscanSel_s <= bscanSel1_s when TAP_USER_INSTR_G = USER1 else bscanSel2_s;
+    bscanSel_s <= bscanSel1_s when TAP_USER_INSTR_G = USER1_E else bscanSel2_s;
 
     -- Detect when a USER JTAG instruction is active and the TAP FSM is in the Shift-DR state.
     inShiftDr_o <= YES when bscanReset_s = LO and bscanShift_s = HI and bscanSel_s = HI else NO;
@@ -278,7 +278,7 @@ begin
     drck_o <= bscanDrck1_s when TAP_USER_INSTR_G = USER1_E else bscanDrck2_s;
   end generate;
 
-  spartan6_bscan : if FPGA_DEVICE_G = SPARTAN6 generate
+  spartan6_bscan : if FPGA_DEVICE_G = SPARTAN6_E generate
     -- Boundary-scan interface to FPGA JTAG port.
     UBscanUser : BSCAN_SPARTAN6
       generic map(
@@ -691,7 +691,7 @@ use IEEE.STD_LOGIC_1164.all;
 use XESS.CommonPckg.all;
 use XESS.SyncToClockPckg.all;
 use XESS.HostIoPckg.all;
-use XESS.XessBoardPckg.all;
+use work.XessBoardPckg.all;
 
 entity HostIoToRam is
   generic (
@@ -874,7 +874,7 @@ use IEEE.STD_LOGIC_ARITH.all;
 use IEEE.STD_LOGIC_UNSIGNED.all;
 use XESS.CommonPckg.all;
 use XESS.HostIoPckg.all;
-use XESS.XessBoardPckg.all;
+use work.XessBoardPckg.all;
 
 entity HostIoToDut is
   generic (

@@ -2,6 +2,8 @@
 XESS VHDL Library Files
 ========================================
 
+**These files are not quite ready for prime time!** Hold off for a while before using them.
+
 These are VHDL files for modules that are useful in a variety of larger designs.
 
     Audio:
@@ -89,20 +91,24 @@ How to Use This Library
 #. Start a Xilinx ISE project.
 
 #. Select the **Project => New VHDL Library...** menu item.
-
-#. In the **New VHDL Library** window, enter ``XESS`` as the name of the library.
+   In the **New VHDL Library** window, enter ``XESS`` as the name of the library.
    Then enter the directory where these VHDL files are stored as the library location.
    Finally, click **OK**.
    
 #. Select the **Project => Add Source...** menu item.
-
-#. In the **Add Source** window, go to the ``Board_Packages`` subdirectory in the library directory
+   In the **Add Source** window, go to the ``Board_Packages`` subdirectory in the library directory
    and select the file associated with the XESS board you are designing for.
-   Then click on the **Open** button. Including this file will customize the XESS library
+   Then click on the **Open** button. This file customizes the XESS library
+   for the particular board you are using.
+   
+#. Select the **Project => Add Copy of Source...** menu item.
+   In the **Add Copy of Source** window, go to the ``Board_Packages`` subdirectory in the library directory
+   and select the UCF file associated with the XESS board you are designing for.
+   Then click on the **Open** button. This file contains the FPGA pin assignments
    for the particular board you are using.
    
 #. Create the rest of the VHDL files for your design. To access the elements of this library,
-   place code such as the following into your files::
+   place code like this into your files::
    
         library XESS;
         use XESS.CommonPckg.all;

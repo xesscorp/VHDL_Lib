@@ -626,7 +626,7 @@ use XESS.ClkGenPckg.all;
 use XESS.HostIoPckg.all;
 use XESS.SdCardPckg.all;
 use XESS.SyncToClockPckg.all;
-use XESS.XessBoardPckg.all;
+use work.XessBoardPckg.all;
 
 entity SdCardCtrlTest is
   generic (

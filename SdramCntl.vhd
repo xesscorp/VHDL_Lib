@@ -35,13 +35,13 @@ package SdramCntlPckg is
       FREQ_G                 : real    := SDRAM_FREQ_C;  -- Operating frequency in MHz.
       IN_PHASE_G             : boolean := SDRAM_IN_PHASE_C;  -- SDRAM and controller XESS on same or opposite clock edge.
       PIPE_EN_G              : boolean := SDRAM_PIPE_EN_C;  -- If true, enable pipelined read operations.
-      MAX_NOP_G              : natural := SDRAM_SDRAM_MAX_NOP_C;  -- Number of NOPs before entering self-refresh.
+      MAX_NOP_G              : natural := SDRAM_MAX_NOP_C;  -- Number of NOPs before entering self-refresh.
       ENABLE_REFRESH_G       : boolean := SDRAM_ENABLE_REFRESH_C;  -- If true, row refreshes are automatically inserted.
       MULTIPLE_ACTIVE_ROWS_G : boolean := SDRAM_MULTIPLE_ACTIVE_ROWS_C;  -- If true, allow an active row in each bank.
       -- Parameters for SDRAM.
+      DATA_WIDTH_G           : natural := SDRAM_DATA_WIDTH_C;  -- Host & SDRAM data width.
       NROWS_G                : natural := SDRAM_NROWS_C;  -- Number of rows in SDRAM array.
       NCOLS_G                : natural := SDRAM_NCOLS_C;  -- Number of columns in SDRAM array.
-      DATA_WIDTH_G           : natural := SDRAM_DATA_WIDTH_C;  -- Host & SDRAM data width.
       HADDR_WIDTH_G          : natural := SDRAM_HADDR_WIDTH_C;  -- Host-side address width.
       SADDR_WIDTH_G          : natural := SDRAM_SADDR_WIDTH_C;  -- SDRAM-side address width.
       T_INIT_G               : real    := SDRAM_T_INIT_C;  -- min initialization interval (ns).
@@ -49,7 +49,7 @@ package SdramCntlPckg is
       T_RCD_G                : real    := SDRAM_T_RCD_C;  -- min interval between active and R/W commands (ns).
       T_REF_G                : real    := SDRAM_T_REF_C;  -- maximum refresh interval (ns).
       T_RFC_G                : real    := SDRAM_T_RFC_C;  -- duration of refresh operation (ns).
-      T_RP_G                 : real    := SDRAM_T_RP_C; - min precharge command duration (ns).
+      T_RP_G                 : real    := SDRAM_T_RP_C;  -- min precharge command duration (ns).
       T_XSR_G                : real    := SDRAM_T_XSR_C  -- exit self-refresh time (ns).
       );
     port(
@@ -143,13 +143,13 @@ package SdramCntlPckg is
       FREQ_G                 : real                          := SDRAM_FREQ_C;  -- Operating frequency in MHz.
       IN_PHASE_G             : boolean                       := SDRAM_IN_PHASE_C;  -- SDRAM and controller XESS on same or opposite clock edge.
       PIPE_EN_G              : boolean                       := SDRAM_PIPE_EN_C;  -- If true, enable pipelined read operations.
-      MAX_NOP_G              : natural                       := SDRAM_SDRAM_MAX_NOP_C;  -- Number of NOPs before entering self-refresh.
+      MAX_NOP_G              : natural                       := SDRAM_MAX_NOP_C;  -- Number of NOPs before entering self-refresh.
       ENABLE_REFRESH_G       : boolean                       := SDRAM_ENABLE_REFRESH_C;  -- If true, row refreshes are automatically inserted.
       MULTIPLE_ACTIVE_ROWS_G : boolean                       := SDRAM_MULTIPLE_ACTIVE_ROWS_C;  -- If true, allow an active row in each bank.
       -- Parameters for SDRAM.
+      DATA_WIDTH_G           : natural                       := SDRAM_DATA_WIDTH_C;  -- Host & SDRAM data width.
       NROWS_G                : natural                       := SDRAM_NROWS_C;  -- Number of rows in SDRAM array.
       NCOLS_G                : natural                       := SDRAM_NCOLS_C;  -- Number of columns in SDRAM array.
-      DATA_WIDTH_G           : natural                       := SDRAM_DATA_WIDTH_C;  -- Host & SDRAM data width.
       HADDR_WIDTH_G          : natural                       := SDRAM_HADDR_WIDTH_C;  -- Host-side address width.
       SADDR_WIDTH_G          : natural                       := SDRAM_SADDR_WIDTH_C;  -- SDRAM-side address width.
       T_INIT_G               : real                          := SDRAM_T_INIT_C;  -- min initialization interval (ns).
@@ -157,7 +157,7 @@ package SdramCntlPckg is
       T_RCD_G                : real                          := SDRAM_T_RCD_C;  -- min interval between active and R/W commands (ns).
       T_REF_G                : real                          := SDRAM_T_REF_C;  -- maximum refresh interval (ns).
       T_RFC_G                : real                          := SDRAM_T_RFC_C;  -- duration of refresh operation (ns).
-      T_RP_G                 : real                          := SDRAM_T_RP_C; - min precharge command duration (ns).
+      T_RP_G                 : real                          := SDRAM_T_RP_C;  -- min precharge command duration (ns).
       T_XSR_G                : real                          := SDRAM_T_XSR_C  -- exit self-refresh time (ns).
       );
     port(
@@ -226,13 +226,13 @@ entity SdramCntl is
     FREQ_G                 : real    := SDRAM_FREQ_C;  -- Operating frequency in MHz.
     IN_PHASE_G             : boolean := SDRAM_IN_PHASE_C;  -- SDRAM and controller XESS on same or opposite clock edge.
     PIPE_EN_G              : boolean := SDRAM_PIPE_EN_C;  -- If true, enable pipelined read operations.
-    MAX_NOP_G              : natural := SDRAM_SDRAM_MAX_NOP_C;  -- Number of NOPs before entering self-refresh.
+    MAX_NOP_G              : natural := SDRAM_MAX_NOP_C;  -- Number of NOPs before entering self-refresh.
     ENABLE_REFRESH_G       : boolean := SDRAM_ENABLE_REFRESH_C;  -- If true, row refreshes are automatically inserted.
     MULTIPLE_ACTIVE_ROWS_G : boolean := SDRAM_MULTIPLE_ACTIVE_ROWS_C;  -- If true, allow an active row in each bank.
     -- Parameters for SDRAM.
+    DATA_WIDTH_G           : natural := SDRAM_DATA_WIDTH_C;  -- Host & SDRAM data width.
     NROWS_G                : natural := SDRAM_NROWS_C;  -- Number of rows in SDRAM array.
     NCOLS_G                : natural := SDRAM_NCOLS_C;  -- Number of columns in SDRAM array.
-    DATA_WIDTH_G           : natural := SDRAM_DATA_WIDTH_C;  -- Host & SDRAM data width.
     HADDR_WIDTH_G          : natural := SDRAM_HADDR_WIDTH_C;  -- Host-side address width.
     SADDR_WIDTH_G          : natural := SDRAM_SADDR_WIDTH_C;  -- SDRAM-side address width.
     T_INIT_G               : real    := SDRAM_T_INIT_C;  -- min initialization interval (ns).
@@ -240,7 +240,7 @@ entity SdramCntl is
     T_RCD_G                : real    := SDRAM_T_RCD_C;  -- min interval between active and R/W commands (ns).
     T_REF_G                : real    := SDRAM_T_REF_C;  -- maximum refresh interval (ns).
     T_RFC_G                : real    := SDRAM_T_RFC_C;  -- duration of refresh operation (ns).
-    T_RP_G                 : real    := SDRAM_T_RP_C; - min precharge command duration (ns).
+    T_RP_G                 : real    := SDRAM_T_RP_C;  -- min precharge command duration (ns).
     T_XSR_G                : real    := SDRAM_T_XSR_C  -- exit self-refresh time (ns).
     );
   port(
@@ -1105,13 +1105,13 @@ entity DualPortSdram is
     FREQ_G                 : real                          := SDRAM_FREQ_C;  -- Operating frequency in MHz.
     IN_PHASE_G             : boolean                       := SDRAM_IN_PHASE_C;  -- SDRAM and controller XESS on same or opposite clock edge.
     PIPE_EN_G              : boolean                       := SDRAM_PIPE_EN_C;  -- If true, enable pipelined read operations.
-    MAX_NOP_G              : natural                       := SDRAM_SDRAM_MAX_NOP_C;  -- Number of NOPs before entering self-refresh.
+    MAX_NOP_G              : natural                       := SDRAM_MAX_NOP_C;  -- Number of NOPs before entering self-refresh.
     ENABLE_REFRESH_G       : boolean                       := SDRAM_ENABLE_REFRESH_C;  -- If true, row refreshes are automatically inserted.
     MULTIPLE_ACTIVE_ROWS_G : boolean                       := SDRAM_MULTIPLE_ACTIVE_ROWS_C;  -- If true, allow an active row in each bank.
     -- Parameters for SDRAM.
+    DATA_WIDTH_G           : natural                       := SDRAM_DATA_WIDTH_C;  -- Host & SDRAM data width.
     NROWS_G                : natural                       := SDRAM_NROWS_C;  -- Number of rows in SDRAM array.
     NCOLS_G                : natural                       := SDRAM_NCOLS_C;  -- Number of columns in SDRAM array.
-    DATA_WIDTH_G           : natural                       := SDRAM_DATA_WIDTH_C;  -- Host & SDRAM data width.
     HADDR_WIDTH_G          : natural                       := SDRAM_HADDR_WIDTH_C;  -- Host-side address width.
     SADDR_WIDTH_G          : natural                       := SDRAM_SADDR_WIDTH_C;  -- SDRAM-side address width.
     T_INIT_G               : real                          := SDRAM_T_INIT_C;  -- min initialization interval (ns).
@@ -1119,7 +1119,7 @@ entity DualPortSdram is
     T_RCD_G                : real                          := SDRAM_T_RCD_C;  -- min interval between active and R/W commands (ns).
     T_REF_G                : real                          := SDRAM_T_REF_C;  -- maximum refresh interval (ns).
     T_RFC_G                : real                          := SDRAM_T_RFC_C;  -- duration of refresh operation (ns).
-    T_RP_G                 : real                          := SDRAM_T_RP_C; - min precharge command duration (ns).
+    T_RP_G                 : real                          := SDRAM_T_RP_C;  -- min precharge command duration (ns).
     T_XSR_G                : real                          := SDRAM_T_XSR_C  -- exit self-refresh time (ns).
     );
   port(

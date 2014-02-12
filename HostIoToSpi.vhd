@@ -60,7 +60,7 @@ use IEEE.numeric_std.all;
 use IEEE.math_real.all;
 use XESS.CommonPckg.all;
 use XESS.HostIoPckg.all;
-use XESS.XessBoardPckg.all;
+use work.XessBoardPckg.all;
 
 package HostIoToSpiPckg is
 
@@ -116,7 +116,7 @@ use IEEE.math_real.all;
 use XESS.CommonPckg.all;
 use XESS.HostIoPckg.all;
 use XESS.SpiPckg.all;
-use XESS.XessBoardPckg.all;
+use work.XessBoardPckg.all;
 
 entity HostIoToSpi is
   generic (

@@ -61,11 +61,10 @@ package XessBoardPckg is
   constant SDRAM_FREQ_C                 : real    := 100.0;  -- Operating frequency in MHz.
   constant SDRAM_IN_PHASE_C             : boolean := true;  -- SDRAM and controller XESS on same or opposite clock edge.
   constant SDRAM_PIPE_EN_C              : boolean := false;  -- If true, enable pipelined read operations.
-  constant SDRAM_MAX_NOP_C              : natural := SDRAM_MAX_NOP_C;  -- Number of NOPs before entering self-refresh.
   constant SDRAM_ENABLE_REFRESH_C       : boolean := true;  -- If true, row refreshes are automatically inserted.
   constant SDRAM_MULTIPLE_ACTIVE_ROWS_C : boolean := false;  -- If true, allow an active row in each bank.
-  constant SDRAM_MAX_NOP_C  : natural := 10000;  -- Number of NOPs before entering self-refresh.
-  constant SDRAM_BEG_ADDR_C : natural := 16#00_0000#;  -- Beginning SDRAM address.
-  constant SDRAM_END_ADDR_C : natural := 16#FF_FFFF#;  -- Ending SDRAM address.
+  constant SDRAM_MAX_NOP_C              : natural := 10000;  -- Number of NOPs before entering self-refresh.
+  constant SDRAM_BEG_ADDR_C             : natural := 16#00_0000#;  -- Beginning SDRAM address.
+  constant SDRAM_END_ADDR_C             : natural := 16#FF_FFFF#;  -- Ending SDRAM address.
 
 end package;

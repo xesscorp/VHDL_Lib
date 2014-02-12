@@ -20,7 +20,7 @@
 library IEEE;
 use IEEE.std_logic_1164.all;
 
-package fifoPckg is
+package FifoPckg is
 
   -- 255 x 16 FIFO with common read and write clock.
   component Fifo255x16cc is
@@ -57,11 +57,12 @@ end package;
 
 
 
-library IEEE, unisim, XESS;
+library IEEE, UNISIM, XESS;
 use IEEE.std_logic_1164.all;
 use IEEE.std_logic_unsigned.all;
-use unisim.vcomponents.all;
+use UNISIM.vcomponents.all;
 use XESS.CommonPckg.all;
+use XESS.FifoPckg.all;
 
 --**********************************************************************
 -- 255 x 16 FIFO with common read and write clock.
@@ -138,11 +139,12 @@ end architecture;
 
 
 
-library IEEE, unisim, XESS;
+library IEEE, UNISIM, XESS;
 use IEEE.std_logic_1164.all;
 use IEEE.std_logic_unsigned.all;
-use unisim.vcomponents.all;
+use UNISIM.vcomponents.all;
 use XESS.CommonPckg.all;
+use XESS.FifoPckg.all;
 
 --**********************************************************************
 -- 255 x 16 FIFO with independent read and write clocks.

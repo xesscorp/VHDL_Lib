@@ -1,0 +1,138 @@
+#**********************************************************************
+# Copyright (c) 1997-2014 by XESS Corp <http://www.xess.com>.
+# All rights reserved.
+#
+# This library is free software; you can redistribute it and/or
+# modify it under the terms of the GNU Lesser General Public
+# License as published by the Free Software Foundation; either
+# version 3.0 of the License, or (at your option) any later version.
+# 
+# This library is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# Lesser General Public License for more details.
+# 
+# You should have received a copy of the GNU Lesser General Public
+# License along with this library.  If not, see 
+# <http://www.gnu.org/licenses/>.
+#**********************************************************************
+
+NET fpgaClk_i      LOC = A9;    # 12 MHz clock input.
+
+##############################
+# SDRAM
+##############################
+NET sdCke_o        LOC = J12;
+NET sdClk_o        LOC = K11;
+NET sdClkFb_i      LOC = K12;
+NET sdCe_bo        LOC = H4;
+NET sdRas_bo       LOC = L4;
+NET sdCas_bo       LOC = L3;
+NET sdWe_bo        LOC = M3;
+NET sdDqml_o       LOC = M4;
+NET sdDqmh_o       LOC = L13;
+NET sdBs_o<0>      LOC = H3;
+NET sdBs_o<1>      LOC = G3;
+NET sdAddr_o<0>    LOC = E4;
+NET sdAddr_o<1>    LOC = E3;
+NET sdAddr_o<2>    LOC = D3;
+NET sdAddr_o<3>    LOC = C3;
+NET sdAddr_o<4>    LOC = B12;
+NET sdAddr_o<5>    LOC = A12;
+NET sdAddr_o<6>    LOC = D12;
+NET sdAddr_o<7>    LOC = E12;
+NET sdAddr_o<8>    LOC = G16;
+NET sdAddr_o<9>    LOC = G12;
+NET sdAddr_o<10>   LOC = F4;
+NET sdAddr_o<11>   LOC = G11;
+NET sdAddr_o<12>   LOC = H13;
+NET sdData_io<0>   LOC = P6;
+NET sdData_io<1>   LOC = T6;
+NET sdData_io<2>   LOC = T5;
+NET sdData_io<3>   LOC = P5;
+NET sdData_io<4>   LOC = R5;
+NET sdData_io<5>   LOC = N5;
+NET sdData_io<6>   LOC = P4;
+NET sdData_io<7>   LOC = N4;
+NET sdData_io<8>   LOC = P12;
+NET sdData_io<9>   LOC = R12;
+NET sdData_io<10>  LOC = T13;
+NET sdData_io<11>  LOC = T14;
+NET sdData_io<12>  LOC = R14;
+NET sdData_io<13>  LOC = T15;
+NET sdData_io<14>  LOC = T12;
+NET sdData_io<15>  LOC = P11;
+
+##############################
+# Flash
+##############################
+NET usdflashCs_bo  LOC = T8;
+NET flashCs_bo     LOC = T3;
+NET sclk_o         LOC = R11;
+NET mosi_o         LOC = T10;
+NET miso_i         LOC = P10;
+
+##############################
+# Prototyping Header
+##############################
+NET chanClk_io     LOC = T7;   # L32N
+NET chan_io<0>     LOC = R7;   # L32P
+NET chan_io<1>     LOC = R15;  # L49P
+NET chan_io<2>     LOC = R16;  # L49N
+NET chan_io<3>     LOC = M15;  # L46P
+NET chan_io<4>     LOC = M16;  # L46N
+NET chan_io<5>     LOC = K15;  # L44P
+NET chan_io<6>     LOC = K16;  # L44N
+NET chan_io<7>     LOC = J16;  # L43N
+NET chan_io<8>     LOC = J14;  # L43P
+NET chan_io<9>     LOC = F15;  # L35P
+NET chan_io<10>    LOC = F16;  # L35N
+NET chan_io<11>    LOC = C16;  # L33N
+NET chan_io<12>    LOC = C15;  # L33P
+NET chan_io<13>    LOC = B16;  # L29N
+NET chan_io<14>    LOC = B15;  # L29P
+NET chan_io<15>    LOC = T4;   # L63N (No differential pair!)
+NET chan_io<16>    LOC = R2;   # L32P
+NET chan_io<17>    LOC = R1;   # L32N
+NET chan_io<18>    LOC = M2;   # L35P
+NET chan_io<19>    LOC = M1;   # L35N
+NET chan_io<20>    LOC = K3;   # L42P
+NET chan_io<21>    LOC = J4;   # L42N
+NET chan_io<22>    LOC = H1;   # L39N
+NET chan_io<23>    LOC = H2;   # L39P
+NET chan_io<24>    LOC = F1;   # L41N
+NET chan_io<25>    LOC = F2;   # L41P
+NET chan_io<26>    LOC = E1;   # L46N
+NET chan_io<27>    LOC = E2;   # L46P
+NET chan_io<28>    LOC = C1;   # L50P
+NET chan_io<29>    LOC = B1;   # L50N
+NET chan_io<30>    LOC = B2;   # L52P
+NET chan_io<31>    LOC = A2;   # L52N
+
+##############################
+# I/O Drive
+##############################
+NET fpgaClk_i      IOSTANDARD = LVTTL;
+NET sdClk_o        IOSTANDARD = LVTTL | SLEW=FAST | DRIVE=8;
+NET sdClkFb_i      IOSTANDARD = LVTTL;
+net sdCke_o        IOSTANDARD = LVTTL;
+net sdCe_bo        IOSTANDARD = LVTTL;
+NET sdAddr_o*      IOSTANDARD = LVTTL | SLEW=SLOW | DRIVE=6;
+NET sdBs_o*        IOSTANDARD = LVTTL | SLEW=SLOW | DRIVE=6;
+NET sdRas_bo       IOSTANDARD = LVTTL | SLEW=SLOW | DRIVE=6;
+NET sdCas_bo       IOSTANDARD = LVTTL | SLEW=SLOW | DRIVE=6;
+NET sdWe_bo        IOSTANDARD = LVTTL | SLEW=SLOW | DRIVE=6;
+NET sdData_io*     IOSTANDARD = LVTTL | SLEW=SLOW | DRIVE=6;
+NET sdDqmh_o       IOSTANDARD = LVTTL | SLEW=SLOW | DRIVE=6;
+NET sdDqml_o       IOSTANDARD = LVTTL | SLEW=SLOW | DRIVE=6;
+NET usdflashCs_bo  IOSTANDARD = LVTTL;
+NET flashCs_bo     IOSTANDARD = LVTTL;
+NET sclk_o         IOSTANDARD = LVTTL;
+NET mosi_o         IOSTANDARD = LVTTL;
+NET chan*          IOSTANDARD = LVTTL;
+
+##############################
+# Clock Nets
+##############################
+NET "fpgaClk_i" TNM_NET = "fpgaClk_i";
+TIMESPEC "TSfpgaClk_i" = PERIOD "fpgaClk_i" 12 MHz HIGH 50%;

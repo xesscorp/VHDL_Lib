@@ -97,7 +97,7 @@ architecture arch of SyncBusToClock is
 begin
   SyncLoop : for i in unsynced_i'range generate
   begin
-    USyncBit : component SyncToClock
+    USyncBit : SyncToClock
       port map(
         clk_i      => clk_i,
         unsynced_i => unsynced_i(i),

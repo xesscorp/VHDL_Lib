@@ -33,7 +33,6 @@ package ButtonDebouncerPckg is
 -- Button  Debouncer.
 --*********************************************************************
 
-
   component ButtonDebouncer is
     generic(
       FREQ_G      : real := 100.0;      -- Master clock frequency in MHz.
@@ -61,6 +60,7 @@ use IEEE.std_logic_1164.all;
 use IEEE.numeric_std.all;
 use UNISIM.vcomponents.all;
 use XESS.CommonPckg.all;
+use XESS.ButtonDebouncerPckg.all;
 
 entity ButtonDebouncer is
   generic(
