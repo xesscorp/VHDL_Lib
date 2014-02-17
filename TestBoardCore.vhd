@@ -72,6 +72,7 @@ use IEEE.numeric_std.all;
 use XESS.CommonPckg.all;
 use XESS.MemTestPckg.all;
 use XESS.SdramCntlPckg.all;
+use XESS.TestBoardCorePckg.all;
 use work.XessBoardPckg.all;
 
 entity TestBoardCore is
