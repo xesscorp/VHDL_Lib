@@ -116,3 +116,55 @@ begin
   end process;
   
 end architecture;
+
+
+
+
+--**********************************************************************
+-- HCSR04 Test Jig
+--**********************************************************************
+
+library IEEE, XESS;
+use IEEE.STD_LOGIC_1164.ALL;
+use XESS.CommonPckg.all;
+use XESS.Hcsr04Pckg.all;
+use XESS.LedDigitsPckg.all;
+use work.XessBoardPckg.all;
+
+entity hcsr04_test is
+    Port ( clk_i : in  STD_LOGIC;
+           trig_o : out  STD_LOGIC;
+           echo_i : in  STD_LOGIC;
+           s_o : out  STD_LOGIC_VECTOR (7 downto 0));
+end hcsr04_test;
+
+architecture Behavioral of hcsr04_test is
+  signal dist_s : std_logic_vector(31 downto 0);
+begin
+
+-- Get the distance reading from the ultrasonic scanner.
+u0 : Hcsr04
+    generic map (
+      FREQ_G => BASE_FREQ_C
+      )
+    port map (
+      clk_i   => clk_i,
+      trig_o  => trig_o,
+      echo_i  => echo_i,
+      dist_o  => dist_s,
+      clear_o => open
+      );
+      
+-- Display the distance reading on the 8-digit LED display.
+u1 : LedHexDisplay
+  generic map (
+    FREQ_G        => BASE_FREQ_C
+    )
+  port map (
+    clk_i          => clk_i,
+    hexAllDigits_i => dist_s,
+    ledDrivers_o   => s_o
+    );
+
+end Behavioral;
+

@@ -102,3 +102,65 @@ begin
   rand_o <= r_r;  -- Output the random number in the shift register.
 
 end architecture;
+
+
+
+--**********************************************************************
+-- Random Number Generator Test Jig
+--
+-- This module attaches the random number generator to a HostIoToRam
+-- interface so it can be tested using a PC and a Python script.
+--**********************************************************************
+
+library IEEE, XESS;
+use IEEE.STD_LOGIC_1164.all;
+use XESS.CommonPckg.all;
+use XESS.ClkGenPckg.all;
+use XESS.RandPckg.all;
+use XESS.HostIoPckg.all;
+
+entity rand_test is
+  port(
+    fpgaClk_i : std_logic
+    );
+end entity;
+
+architecture Behavioral of rand_test is
+  signal clk_s       : std_logic;
+  signal randCke_s   : std_logic;
+  signal wr_s        : std_logic;
+  signal rd_s        : std_logic;
+  signal rand_s      : std_logic_vector(11 downto 0);
+  signal seed_s      : std_logic_vector(rand_s'range);
+  signal addr_s      : std_logic_vector(0 downto 0);
+begin
+
+  UClkGen : ClkGen port map(i => fpgaClk_i, o => clk_s);
+
+  randCke_s <= wr_s or rd_s;
+
+  URandGen : RandGen
+    port map(
+      clk_i  => clk_s,
+      cke_i  => randCke_s,
+      ld_i   => wr_s,
+      seed_i => seed_s,
+      rand_o => rand_s
+      );
+
+  UHostIoToRand : HostIoToRam
+    generic map(
+      ID_G => "00000001", 
+      SIMPLE_G => true
+      )
+    port map(
+      clk_i          => clk_s,
+      addr_o         => addr_s,
+      wr_o           => wr_s,
+      dataFromHost_o => seed_s,
+      rd_o           => rd_s,
+      dataToHost_i   => rand_s
+      );
+
+end architecture;
+
