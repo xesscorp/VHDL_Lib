@@ -64,6 +64,24 @@ How to Use This Library
         
    (Since you used **Project => Add Source...** to add the board definition file to your project,
    then it is automatically included in the default ``work`` library.)
+   
+   
+How to Fix a Project with Missing Files
+========================================
+
+After you've downloaded an XESS design project, you may get errors with missing files when you
+try to open or compile it. That's probably because this library isn't in the place where the
+project expects to find it. You could move this library to the place the project wants it, but
+it's probably better to just modify the project as follows:
+
+#. In the **Libraries** tab of the ISE Navigator window, right-click on the **XESS** library
+   entry and select **Remove** from the pop-up menu.
+   
+#. In the **Files** tab of the ISE Navigator window, right-click on any files that are
+   in the ``VHDL_Lib\Board_Packages` subdirectory and select **Remove** from the pop-up menu.
+   
+Once these items are removed, you can add them back using the procedure described in the previous
+section. Then the missing file errors should be gone.
 
 
 Library Contents
