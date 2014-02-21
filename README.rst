@@ -78,7 +78,7 @@ it's probably better to just modify the project as follows:
    entry and select **Remove** from the pop-up menu.
    
 #. In the **Files** tab of the ISE Navigator window, right-click on any files that are
-   in the ``VHDL_Lib\Board_Packages` subdirectory and select **Remove** from the pop-up menu.
+   in the ``VHDL_Lib\Board_Packages`` subdirectory and select **Remove** from the pop-up menu.
    
 Once these items are removed, you can add them back using the procedure described in the previous
 section. Then the missing file errors should be gone.
