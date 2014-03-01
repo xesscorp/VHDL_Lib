@@ -28,9 +28,9 @@ use IEEE.STD_LOGIC_1164.all;
 
 package ClkGenPckg is
 
-  --**********************************************************************
-  -- Generate a clock frequency from a master clock.
-  --**********************************************************************
+--**********************************************************************
+-- Generate a clock frequency from a master clock.
+--**********************************************************************
   component ClkGen is
     generic (
       BASE_FREQ_G : real                  := 12.0;  -- Input frequency in MHz.
@@ -45,15 +45,29 @@ package ClkGenPckg is
       );
   end component;
 
-  --**********************************************************************
-  -- Send a clock signal to an output pin or some logic that's not
-  -- on an FPGA clock network.
-  --**********************************************************************
+--**********************************************************************
+-- Send a clock signal to an output pin or some logic that's not
+-- on an FPGA clock network.
+--**********************************************************************
   component ClkToLogic is
     port (
       clk_i  : in  std_logic;           -- Positive-phase of clock input.
       clk_ib : in  std_logic;           -- Negative-phase of clock input.
       clk_o  : out std_logic  -- Clock output that's suitable as a logic input.
+      );
+  end component;
+
+--**********************************************************************
+-- Generate a slow clock from a faster clock.
+--**********************************************************************
+  component SlowClkGen is
+    generic(
+      INPUT_FREQ_G  : real;             -- Input frequency (MHz).
+      OUTPUT_FREQ_G : real              -- Output frequency (MHz).
+      );
+    port(
+      clk_i : in  std_logic;          -- Input clock.
+      clk_o : out std_logic          -- Output clock.
       );
   end component;
 
@@ -155,4 +169,49 @@ begin
       R  => ZERO,
       S  => ZERO
       );
+end architecture;
+
+
+library IEEE, XESS;
+use IEEE.STD_LOGIC_1164.all;
+use IEEE.math_real.all;
+use XESS.CommonPckg.all;
+
+--**********************************************************************
+-- Generate a slow clock from a faster clock.
+--**********************************************************************
+entity SlowClkGen is
+  generic(
+    INPUT_FREQ_G  : real;               -- Input frequency (MHz).
+    OUTPUT_FREQ_G : real                -- Output frequency (MHz).
+    );
+  port(
+    clk_i : in  std_logic;            -- Input clock.
+    clk_o : out std_logic            -- Output clock.
+    );
+end entity;
+
+architecture arch of SlowClkGen is
+  constant DIVISOR_C  : natural := integer(round(INPUT_FREQ_G / OUTPUT_FREQ_G));
+  constant LOW_CNT_C  : natural := DIVISOR_C / 2;
+  constant HIGH_CNT_C : natural := DIVISOR_C - LOW_CNT_C;
+begin
+  process(clk_i)
+    variable cnt_v    : natural range 0 to HIGH_CNT_C-1;
+    variable output_v : std_logic := LO;
+  begin
+    if rising_edge(clk_i) then
+      if cnt_v = 0 then
+        clk_o <= output_v;
+        if output_v = LO then
+          cnt_v := LOW_CNT_C-1;
+        else
+          cnt_v := HIGH_CNT_C-1;
+        end if;
+        output_v := not output_v;
+      else
+        cnt_v := cnt_v - 1;
+      end if;
+    end if;
+  end process;
 end architecture;
