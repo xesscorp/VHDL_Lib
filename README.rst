@@ -99,10 +99,14 @@ Library Contents
 
     ClkGen.vhd:
         A clock generator module that uses a DCM to multiply or divide an input clock to create an
-        output clock with a higher or lower frequency.
+        output clock with a higher or lower frequency. Also includes a simpler module that divides
+        a master clock to generate lower frequencies.
 
     Common.vhd:
         Contains useful constants and functions.
+        
+    Delay.vhd:
+        Modules to delay signals or buses by one or more clock cycles.
         
     Fifo.vhd:
         Simple FIFO modules in common-clock and independent-clock versions.
@@ -133,9 +137,12 @@ Library Contents
 
     MemTest.vhd:
         A module that writes a random stream of values to memory.
+        
+    PatternGen.vhd:
+        A module to output a sequence of words stored in a ROM.
 
     Pwm.vhd:
-        A simple pulse-width modulator circuit.
+        A simple pulse-width modulator and a single-shot pulse generator.
         
     RandGen.vhd:
         An LFSR-based module for generating random values.
