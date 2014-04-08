@@ -121,6 +121,10 @@ Library Contents
         A set of modules that let a host PC pass data back-and-forth with
         a user design running in the FPGA.
         
+    HostIoComm.vhd:
+        An interface that lets a PC pass data back-and-forth with a user design
+        running in the FPGA via a set of download and upload FIFO buffers.
+        
     HostIoToI2c.vhd:
         An interface that lets the host PC pass data back-and-forth with
         a chip that has an I2C interface.

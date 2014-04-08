@@ -628,10 +628,10 @@ entity RamCtrlSync is
     drck_i    : in  std_logic;          -- Clock from JTAG domain.
     clk_i     : in  std_logic;          -- Clock from RAM domain.
     ctrlIn_i  : in  std_logic;          -- Control signal from JTAG domain.
-    ctrlOut_o : out std_logic;          -- Control signal to RAM domain.
+    ctrlOut_o : out std_logic := LO;    -- Control signal to RAM domain.
     opBegun_i : in  std_logic := HI;  -- R/W operation begun signal from RAM domain.
     doneIn_i  : in  std_logic := HI;  -- R/W operation done signal from RAM domain.
-    doneOut_o : out std_logic  -- R/W operation done signal to the JTAG domain. 
+    doneOut_o : out std_logic := LO  -- R/W operation done signal to the JTAG domain. 
     );
 end entity;
 
@@ -730,6 +730,8 @@ architecture arch of HostIoToRam is
   signal wrDone_s    : std_logic;
   signal rdDone_s    : std_logic;
   signal rwDone_s    : std_logic;
+  signal dataToHost_r : std_logic_vector(dataToHost_i'range);
+  signal dataToHost_s : std_logic_vector(dataToHost_i'range);
   -- Internal JTAG signals.
   signal inShiftDr_s : std_logic;
   signal drck_s      : std_logic;
@@ -783,7 +785,7 @@ begin
       wr_o           => wr_s,
       dataFromHost_o => dataFromHost_o,
       rd_o           => rd_s,
-      dataToHost_i   => dataToHost_i,
+      dataToHost_i   => dataToHost_s,
       rwDone_i       => rwDone_s
       );
 
@@ -811,7 +813,19 @@ begin
         doneIn_i  => done_i,
         doneOut_o => rdDone_s
         );
-
+    
+    -- Hold the data in a register so it doesn't change until the 
+    -- slower host has a chance to read it.
+    process(clk_i)
+    begin
+      if rising_edge(clk_i) then
+        if (rd_s = YES) and (done_i = YES) then
+          dataToHost_r <= dataToHost_i;
+        end if;
+      end if;
+    end process;
+    dataToHost_s <= dataToHost_r;
+    
     -- Only one read or write memory operation can be in-process at a time,
     -- so OR their done signals together to create a unified
     -- "memory operation done" signal.
@@ -824,6 +838,7 @@ begin
     rwDone_s <= done_i;
     rd_o     <= rd_s;
     wr_o     <= wr_s;
+    dataToHost_s <= dataToHost_i;
   end generate;
 
 end architecture;
