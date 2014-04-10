@@ -73,20 +73,6 @@ package VgaPckg is
       );
   end component;
 
-  component FifoCc is
-    port (
-      rst_i     : in  std_logic;        -- Asynchronous reset.
-      clk_i     : in  std_logic;        -- Master clock.
-      rd_i      : in  std_logic;  -- When true, read next value from FIFO.
-      wr_i      : in  std_logic;        -- When true, write value into FIFO.
-      dataIn_i  : in  std_logic_vector(15 downto 0);  -- Data bus into FIFO.
-      dataOut_o : out std_logic_vector(15 downto 0);  -- Data bus out of FIFO.
-      full_o    : out std_logic;        -- True when FIFO is full.
-      empty_o   : out std_logic;        -- True when FIFO is empty.
-      level_o   : out std_logic_vector(7 downto 0)  -- Number of entries in FIFO.
-      );
-  end component;
-
   component PixelVga is
     generic (
       FREQ_G            : real    := 50.0;  -- Master clock frequency (in MHz).
@@ -340,92 +326,6 @@ end architecture;
 
 
 --
--- First-in, first-out buffer for holding pixels to display on the VGA monitor.
---
-
-library IEEE, UNISIM, XESS;
-use IEEE.std_logic_1164.all;
-use IEEE.std_logic_unsigned.all;
-use IEEE.numeric_std.all;
-use XESS.CommonPckg.all;
-
-
-entity FifoCc is
-  port (
-    rst_i     : in  std_logic;          -- Asynchronous reset.
-    clk_i     : in  std_logic;          -- Master clock.
-    rd_i      : in  std_logic;  -- When true, read next value from FIFO.
-    wr_i      : in  std_logic;          -- When true, write value into FIFO.
-    dataIn_i  : in  std_logic_vector(15 downto 0);  -- Data bus into FIFO.
-    dataOut_o : out std_logic_vector(15 downto 0);  -- Data bus out of FIFO.
-    full_o    : out std_logic;          -- True when FIFO is full.
-    empty_o   : out std_logic;          -- True when FIFO is empty.
-    level_o   : out std_logic_vector(7 downto 0)  -- Number of entries in FIFO.
-    );
-end entity;
-
-architecture arch of FifoCc is
-  signal full_s      : std_logic;
-  signal empty_s     : std_logic;
-  signal rdAddr_r    : std_logic_vector(7 downto 0) := "00000000";
-  signal wrAddr_r    : std_logic_vector(7 downto 0) := "00000000";
-  signal level_r     : std_logic_vector(7 downto 0) := "00000000";
-  signal rdAllow_s   : std_logic;
-  signal wrAllow_s   : std_logic;
-  subtype RamWord_t is std_logic_vector(dataIn_i'range);  -- RAM word type.
-  type Ram_t is array (0 to 255) of RamWord_t;  -- array of RAM words type.
-  signal ram_r       : Ram_t;           -- RAM declaration.
-  signal dataToRam_r : RamWord_t;       -- Data to write to RAM.
-begin
-
-  -- Inferred dual-port RAM.  
-  process (clk_i)
-  begin
-    if rising_edge(clk_i) then
-      if wrAllow_s = YES then
-        ram_r(to_integer(unsigned(wrAddr_r))) <= dataIn_i;
-      end if;
-      dataOut_o <= ram_r(to_integer(unsigned(rdAddr_r)));
-    end if;
-  end process;
-
-
-  -- Allow read and write of FIFO under these conditions.         
-  rdAllow_s <= rd_i and not empty_s;
-  wrAllow_s <= wr_i and not full_s;
-
-  process (clk_i, rst_i)
-  begin
-    if rst_i = YES then
-      rdAddr_r <= (others => ZERO);
-      wrAddr_r <= (others => ZERO);
-      level_r  <= (others => ZERO);
-    elsif rising_edge(clk_i) then
-      if rdAllow_s = YES then
-        rdAddr_r <= rdAddr_r + ONE;
-      end if;
-      if wrAllow_s = YES then
-        wrAddr_r <= wrAddr_r + ONE;
-      end if;
-      if (wrAllow_s and not rdAllow_s) = YES then
-        level_r <= level_r + ONE;
-      elsif (rdAllow_s and not wrAllow_s) = YES then
-        level_r <= level_r - ONE;
-      end if;
-    end if;
-  end process;
-
-  full_s  <= YES when level_r = "11111111" else NO;
-  full_o  <= full_s;
-  empty_s <= YES when level_r = "00000000" else NO;
-  empty_o <= empty_s;
-  level_o <= level_r;
-
-end architecture;
-
-
-
---
 -- Module for displaying individual pixels on a VGA display.
 --
 
@@ -436,6 +336,7 @@ use IEEE.std_logic_arith.all;
 use IEEE.std_logic_unsigned.all;
 use UNISIM.vcomponents.all;
 use XESS.CommonPckg.all;
+use XESS.FifoPckg.all;
 use XESS.VgaPckg.all;
 
 entity PixelVga is
@@ -505,14 +406,14 @@ begin
 
   -- Pixel data buffer (FIFO).
   ckeRd_s <= rd_x and cke_r;
-  fifo : FifoCc
+  fifo : Fifo255x16cc
     port map (
       clk_i     => clk_i,
       rd_i      => ckeRd_s,
       wr_i      => wr_i,
-      dataIn_i  => pixelDataIn_i,
+      data_i    => pixelDataIn_i,
       rst_i     => fifoRst_s,
-      dataOut_o => pixelDataOut_s,
+      data_o    => pixelDataOut_s,
       full_o    => open,
       empty_o   => open,
       level_o   => fifoLevel_s
@@ -813,5 +714,157 @@ begin
   -- Output black/white pixels (R, G and B all the same value).
   rgb_s <= (others => pixelReg_r(pixelReg_r'high));
   rgb_o <= rgb_s;
+
+end architecture;
+
+
+
+------------------------------------------------------------------------------------------
+-- This is a test design that reads an image from SDRAM and displays it on a VGA monitor.
+------------------------------------------------------------------------------------------
+
+library IEEE, XESS;
+use IEEE.STD_LOGIC_1164.all;
+use IEEE.STD_LOGIC_ARITH.all;
+use IEEE.STD_LOGIC_UNSIGNED.all;
+use XESS.VgaPckg.all;
+use XESS.ClkgenPckg.all;
+use XESS.SdramCntlPckg.all;
+use XESS.CommonPckg.all;
+use work.XessBoardPckg.all;
+
+
+entity PixelVgaTest is
+  generic(
+    FREQ_G            : real    := 100.0;  -- Master clock frequency (Mhz).
+    CLK_DIV_G         : natural := 2;   -- Pixel clock = FREQ / CLK_DIV.
+    NUM_RGB_BITS_G    : natural := 5;  -- #Bits in each R,G,B component of a pixel.
+    PIXELS_PER_LINE_G : natural := 800;    -- Width of image in pixels.
+    LINES_PER_FRAME_G : natural := 600  -- Height of image in scanlines.
+    );
+  port(
+    clk_i     : in    std_logic;        -- 12 MHz XuLA clock.
+    hSync_bo  : out   std_logic;        -- VGA horizontal sync.
+    vSync_bo  : out   std_logic;        -- VGA vertical sync.
+    red_o     : out   std_logic_vector(NUM_RGB_BITS_G-1 downto 1);  -- VGA red signals (only 4 bits).
+    green_o   : out   std_logic_vector(NUM_RGB_BITS_G-1 downto 0);  -- VGA green signals.
+    blue_o    : out   std_logic_vector(NUM_RGB_BITS_G-1 downto 0);  -- VGA blue signals.
+    -- SDRAM I/O.
+    sdCke_o   : out   std_logic;        -- SDRAM clock enable.
+    sdClk_o   : out   std_logic;        -- Clock to SDRAM.
+    sdClkFb_i : in    std_logic;  -- Clock from SDRAM after I/O and PCB delays.
+    sdCe_bo   : out   std_logic;        -- SDRAM chip-enable.
+    sdRas_bo  : out   std_logic;        -- SDRAM row address strobe.
+    sdCas_bo  : out   std_logic;        -- SDRAM column address strobe.
+    sdWe_bo   : out   std_logic;        -- SDRAM write enable.
+    sdDqml_o  : out   std_logic;        -- SDRAM data bus lower-byte qualifier.
+    sdDqmh_o  : out   std_logic;        -- SDRAM data bus upper-byte qualifier.
+    sdBs_o    : out   std_logic_vector(1 downto 0);        -- SDRAM bank address bits.
+    sdAddr_o  : out   std_logic_vector(SDRAM_SADDR_WIDTH_C-1 downto 0);  -- SDRAM row/column address.
+    sdData_io : inout std_logic_vector(SDRAM_DATA_WIDTH_C-1 downto 0)  -- SDRAM in/out databus.
+    );
+end entity;
+
+
+architecture arch of PixelVgaTest is
+
+  signal clk_s           : std_logic;  -- 100 MHz clock generated from 12 MHz XuLA clock.
+  signal rst_r           : std_logic;   -- reset signal.
+  signal eof_s           : std_logic;  -- end-of-frame signal from VGA controller.
+  signal earlyOpBegun_s  : std_logic;  -- indicates when an SDRAM read operation has begun.
+  signal rdDone_s        : std_logic;  -- indicates when data read from the SDRAM is available.
+  signal full_s, full_bs : std_logic;  -- indicates when the VGA pixel buffer is full.
+  signal address_r       : std_logic_vector(SDRAM_HADDR_WIDTH_C-1 downto 0);  -- SDRAM address counter .
+  signal pixel_s         : std_logic_vector(SDRAM_DATA_WIDTH_C-1 downto 0);  -- pixel values from SDRAM.
+  signal rgb_s           : std_logic_vector(14 downto 0);  -- RGB color bus.
+
+begin
+
+  -- Generate a 100 MHz clock from the 12 MHz clock on the XuLA board.
+  UClkGen : ClkGen
+    generic map (BASE_FREQ_G => BASE_FREQ_C, CLK_MUL_G => 25, CLK_DIV_G => 3)
+    port map (I              => clk_i, clkToLogic_o => clk_s);
+  
+  sdClk_o <= clk_s;  -- Clock SDRAM at 100 MHz. This signal feeds-back to sdClkFb_i.
+
+  -- Generate a reset pulse at the start of operations.
+  process(sdClkFb_i)
+    variable rstCntr_r : natural range 0 to 15 := 15;
+  begin
+    if rising_edge(sdClkFb_i) then
+      if rstCntr_r /= 0 then
+        rstCntr_r := rstCntr_r - 1;
+        rst_r     <= YES;
+      else
+        rst_r <= NO;  --- Release reset after initial interval..
+      end if;
+    end if;
+  end process;
+
+  -- Update the SDRAM address counter.
+  process(sdClkFb_i)
+  begin
+    if rising_edge(sdClkFb_i) then
+      if eof_s = YES or rst_r = YES then
+        address_r <= (others => ZERO);  -- Reset the address at the end of a video frame.
+      elsif earlyOpBegun_s = YES then
+        address_r <= address_r + 1;  -- Go to the next address once the read of the current address has begun.
+      end if;
+    end if;
+  end process;
+
+  -- SDRAM controller used to get pixel data from the external SDRAM.
+  USdramCntl : SdramCntl
+    generic map(
+      FREQ_G        => FREQ_G,
+      PIPE_EN_G     => true
+      )
+    port map(
+      clk_i          => sdClkFb_i,      -- Master clock fed back from SDRAM.
+      rst_i          => rst_r,
+      rd_i           => full_bs,  -- Initiate a read when the VGA pixel buffer is not full.
+      addr_i         => address_r,  -- The address to read from is stored in the address counter.
+      earlyOpBegun_o => earlyOpBegun_s,  -- Indicate when the read operation has actually begun.
+      rdDone_o       => rdDone_s,  -- Indicate when the data from the read operation is available.
+      data_o         => pixel_s,  -- This is the pixel data that was read from the SDRAM.
+      sdCke_o        => sdCke_o,        -- SDRAM clock enable.
+      sdCe_bo        => sdCe_bo,        -- SDRAM chip-enable.
+      sdRas_bo       => sdRas_bo,       -- SDRAM RAS.
+      sdCas_bo       => sdCas_bo,       -- SDRAM CAS.
+      sdWe_bo        => sdWe_bo,        -- SDRAM write-enable.
+      sdDqml_o       => sdDqml_o,       -- SDRAM data bus lower-byte qualifier.
+      sdDqmh_o       => sdDqmh_o,       -- SDRAM data bus upper-byte qualifier.
+      sdBs_o         => sdBs_o,         -- SDRAM bank address.
+      sdAddr_o       => sdAddr_o,       -- SDRAM address.
+      sdData_io      => sdData_io       -- Data to/from SDRAM.
+      );
+
+  -- Pixel-mode VGA generator.
+  UPixelVga : PixelVga
+    generic map (
+      FREQ_G            => FREQ_G,
+      CLK_DIV_G         => CLK_DIV_G,
+      PIXELS_PER_LINE_G => PIXELS_PER_LINE_G,
+      LINES_PER_FRAME_G => LINES_PER_FRAME_G,
+      FIT_TO_SCREEN_G   => true
+      )
+    port map (
+      rst_i         => rst_r,
+      clk_i         => sdClkFb_i,  -- Use the fed-back SDRAM clock so VGA generator is in sync with SDRAM.
+      wr_i          => rdDone_s,  -- Write to pixel buffer when the data read from SDRAM is available.
+      pixelDataIn_i => pixel_s,         -- Pixel data from SDRAM.
+      full_o        => full_s,    -- Indicates when the pixel buffer is full.
+      eof_o         => eof_s,  -- Indicates when the VGA generator has finished a video frame.
+      hSync_bo      => hSync_bo,        -- Horizontal sync.
+      vSync_bo      => vSync_bo,        -- Vertical sync.
+      rgb_o         => rgb_s            -- Red, green, blue color bus.
+      );
+
+  -- Split the RGB color bus into its individual components.
+  red_o   <= rgb_s(14 downto 11); -- Ignore the LSB red bit.
+  green_o <= rgb_s(9 downto 5);
+  blue_o  <= rgb_s(4 downto 0);
+
+  full_bs <= not full_s;  -- Negate the full signal for use in controlling the SDRAM read operation.
 
 end architecture;
