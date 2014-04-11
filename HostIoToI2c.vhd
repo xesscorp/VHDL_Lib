@@ -147,7 +147,7 @@ begin
       TAP_USER_INSTR_G   => TAP_USER_INSTR_G,
       SIMPLE_G           => SIMPLE_G,
       SYNC_G             => true,
-      ADDR_INC           => 0  -- R/W sequences do not automatically advance the register address.
+      ADDR_INC_G         => 0  -- R/W sequences do not automatically advance the register address.
      -- (This is done to support reads and writes of multi-byte-wide registers.)
       )
     port map(

@@ -109,7 +109,7 @@ package HostIoPckg is
     generic (
       ID_G               : std_logic_vector := "11111111";  -- The ID this module responds to.
       PYLD_CNTR_LENGTH_G : natural          := 32;  -- Length of payload bit counter.
-      ADDR_INC           : integer          := 1  -- Add to address after each memory R/W operation.
+      ADDR_INC_G         : integer          := 1  -- Add to address after each memory R/W operation.
       );
     port (
       reset_i        : in  std_logic := LO;  -- Active-high reset signal.
@@ -132,7 +132,7 @@ package HostIoPckg is
     generic (
       ID_G               : std_logic_vector := "11111111";  -- The ID this module responds to.
       PYLD_CNTR_LENGTH_G : natural          := 32;  -- Length of payload bit counter.
-      ADDR_INC           : integer          := 1;  -- Add to address after each memory R/W operation.
+      ADDR_INC_G         : integer          := 1;  -- Add to address after each memory R/W operation.
       FPGA_DEVICE_G      : FpgaFamily_t     := FPGA_FAMILY_C;  -- FPGA device type.
       TAP_USER_INSTR_G   : TapUserInstr_t   := TAP_USER_INSTR_C;  -- USER instruction this module responds to.
       SIMPLE_G           : boolean          := false;  -- If true, include BscanToHostIo module in this module.
@@ -448,7 +448,7 @@ entity HostIoToRamCore is
   generic (
     ID_G               : std_logic_vector := "11111111";  -- The ID this module responds to.
     PYLD_CNTR_LENGTH_G : natural          := 32;  -- Length of payload bit counter.
-    ADDR_INC           : integer          := 1  -- Add to address after each memory R/W operation.
+    ADDR_INC_G         : integer          := 1  -- Add to address after each memory R/W operation.
     );
   port (
     reset_i        : in  std_logic := LO;  -- Active-high reset signal.
@@ -537,7 +537,7 @@ begin
               else    -- Now get data to write to memory from the host.
                 if wrToMemory_r = YES and rwDone_i = YES then  -- Write to memory is done.
                   wrToMemory_r   <= NO;  -- Stop any further writes till another complete data word arrives from host.
-                  addrFromHost_r <= addrFromHost_r + ADDR_INC;  -- Point to next memory location to be written (if needed).
+                  addrFromHost_r <= addrFromHost_r + ADDR_INC_G;  -- Point to next memory location to be written (if needed).
                 end if;
                 if shiftReg_r(0) = LO then  -- Shifting in data from host before writing it to memory. 
                   shiftReg_r(dataFromHost_o'range) <= tdi_i & shiftReg_r(dataFromHost_o'high downto 1);
@@ -566,7 +566,7 @@ begin
                   shiftReg_r(dataFromMemory_r'range) <= dataFromMemory_r;  --  Reload it with new data from memory.
                   bitCntr_r                          <= dataFromMemory_r'length-1;  -- Reload the bit counter.
                   if pyldCntr_s >= shiftReg_r'length then  -- Is more data expected by the host?
-                    addrFromHost_r <= addrFromHost_r + ADDR_INC;  -- Point to next memory location to read from.
+                    addrFromHost_r <= addrFromHost_r + ADDR_INC_G;  -- Point to next memory location to read from.
                     rdFromMemory_r <= YES;     -- Initiate the read operation.
                   end if;
                 else  -- Shift register is shifting its contents to the host.
@@ -697,7 +697,7 @@ entity HostIoToRam is
   generic (
     ID_G               : std_logic_vector := "11111111";  -- The ID this module responds to.
     PYLD_CNTR_LENGTH_G : natural          := 32;  -- Length of payload bit counter.
-    ADDR_INC           : integer          := 1;  -- Add to address after each memory R/W operation.
+    ADDR_INC_G         : integer          := 1;  -- Add to address after each memory R/W operation.
     FPGA_DEVICE_G      : FpgaFamily_t     := FPGA_FAMILY_C;  -- FPGA device type.
     TAP_USER_INSTR_G   : TapUserInstr_t   := TAP_USER_INSTR_C;  -- USER instruction this module responds to.
     SIMPLE_G           : boolean          := false;  -- If true, include BscanToHostIo module in this module.
@@ -773,7 +773,7 @@ begin
     generic map (
       ID_G               => ID_G,
       PYLD_CNTR_LENGTH_G => PYLD_CNTR_LENGTH_G,
-      ADDR_INC           => ADDR_INC
+      ADDR_INC_G         => ADDR_INC_G
       )
     port map(
       reset_i        => reset_i,
