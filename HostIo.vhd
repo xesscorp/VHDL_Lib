@@ -637,6 +637,8 @@ end entity;
 
 architecture arch of RamCtrlSync is
   signal ctrlIn_s : std_logic;  -- JTAG domain control signal sync'ed to RAM domain.
+  signal ctrlOut_r : std_logic;
+  signal doneOut_s : std_logic;
 begin
 
   -- Sync the RAM control signal from the JTAG clock domain to the RAM domain.
@@ -651,17 +653,21 @@ begin
     if rising_edge(clk_i) then
       if ctrlIn_s = LO then
         -- Lower the RAM control signal if the input signal has been deactivated.
-        ctrlOut_o <= LO;
+        ctrlOut_r <= LO;
       elsif prevCtrlIn_v = LO then
         -- Raise the RAM control signal upon a rising edge of the input control signal.
-        ctrlOut_o <= HI;
+        ctrlOut_r <= HI;
       elsif opBegun_i = HI or doneIn_i = HI then
         -- Lower the RAM control signal once the RAM has begun or completed the R/W operation.
-        ctrlOut_o <= LO;
+        ctrlOut_r <= LO;
       end if;
       prevCtrlIn_v := CtrlIn_s;  -- Store the previous value of the input control signal.
     end if;
   end process;
+  
+  -- Make sure the RAM control signal is lowered as soon as the RAM starts doing or has completed
+  -- its operation, otherwise the operation may be repeated.
+  ctrlOut_o <= ctrlOut_r and not (doneIn_i or opBegun_i);
 
   -- Inform the HostIoToRamCore when the memory operation is done. Latch the done signal
   -- from the RAM until the HostIoToRamCore sees it and lowers its control signal.
@@ -670,12 +676,14 @@ begin
   begin
     if rising_edge(clk_i) then
       if ctrlIn_s = LO then
-        doneOut_o <= LO;
+        doneOut_s <= LO;
       elsif doneIn_i = HI then
-        doneOut_o <= HI;
+        doneOut_s <= HI;
       end if;
     end if;
   end process;
+  
+  UDoneSync : SyncToClock port map (clk_i => drck_i, unsynced_i => doneOut_s, synced_o => doneOut_o);
 
 end architecture;
 
