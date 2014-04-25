@@ -23,9 +23,9 @@ use IEEE.STD_LOGIC_1164.all;
 
 package PatternGenPckg is
 
-  --**********************************************************************
-  -- Module for outputting a sequence of values from a ROM.
-  --**********************************************************************
+--**********************************************************************
+-- Module for outputting a sequence of values from a ROM.
+--**********************************************************************
   component PatternGen is
     generic (
       PATTERN_FILE_NAME_G : string      -- MIF file where patterns are stored.
@@ -37,6 +37,19 @@ package PatternGenPckg is
       length_i    : in  std_logic_vector;  -- # of samples in pattern. MUST NOT BE 0!
       sample_o    : out std_logic_vector;  -- Sample from pattern, one sample per clock cycle.
       busy_o      : out std_logic       -- High while samples are being output.
+      );
+  end component;
+
+  component SineGen is
+    generic (
+      NUM_SAMPLES_G : natural := 256  -- Number of samples in quarter wave of sinusoid.
+      );
+    port (
+      clk_i       : in  std_logic;  -- Input clock that determines rate of sample outputs.
+      freq_i      : in  std_logic_vector;  -- Larger value -> sine wave of higher frequency.
+      amplitude_i : in  std_logic_vector;  -- Amplitude of the sinusoid.
+      offset_i    : in  std_logic_vector;  -- Offset of the sinusoid from 0.
+      sine_o      : out std_logic_vector   -- Unipolar, sinusoidal value.
       );
   end component;
 
@@ -120,4 +133,95 @@ begin
     end if;
   end process;
   busy_o <= HI when cnt_r /= 0 else LO;
+end architecture;
+
+
+
+
+--**********************************************************************
+-- Module for outputting a sinusoidal sequence.
+--**********************************************************************
+
+library IEEE;
+use IEEE.STD_LOGIC_1164.all;
+use IEEE.math_real.all;
+use IEEE.NUMERIC_STD.all;
+
+library XESS;
+use XESS.CommonPckg.all;
+
+entity SineGen is
+  generic (
+    NUM_SAMPLES_G : natural := 512  -- Number of samples in quarter wave of sinusoid.
+    );
+  port (
+    clk_i       : in  std_logic;  -- Input clock that determines rate of sample outputs.
+    freq_i      : in  std_logic_vector;  -- Larger value -> sine wave of higher frequency.
+    amplitude_i : in  std_logic_vector;  -- Amplitude of the sinusoid.
+    offset_i    : in  std_logic_vector;  -- Offset of the sinusoid from 0.
+    sine_o      : out std_logic_vector  -- Unipolar, sinusoidal value.
+    );
+end entity;
+
+architecture arch of SineGen is
+
+  constant SAMPLE_WIDTH_C      : natural := sine_o'length;
+  constant MAX_SAMPLE_C        : natural := 2 ** SAMPLE_WIDTH_C - 1;
+  constant ADDR_WIDTH_C        : natural := integer(ceil(log2(real(NUM_SAMPLES_G))));
+  constant NUM_SAMPLES_C       : natural := 2 ** ADDR_WIDTH_C;
+  constant PHASE_ACCUM_WIDTH_C : natural := freq_i'length;
+  signal phase_accum_r         : unsigned(PHASE_ACCUM_WIDTH_C-1 downto 0) := (others=>'0');
+  alias half_r is phase_accum_r(phase_accum_r'high);
+  alias addr_r is phase_accum_r(phase_accum_r'high-1 downto phase_accum_r'high-1-ADDR_WIDTH_C+1);
+  alias remainder_r is phase_accum_r(phase_accum_r'high-ADDR_WIDTH_C-1 downto 0);
+
+  subtype RomWord_t is unsigned(17 downto 0);              -- ROM word type.
+  type Rom_t is array (0 to NUM_SAMPLES_C-1) of RomWord_t;  -- ROM array type.
+
+  --**********************************************************************
+  -- This function loads the pattern ROM with sinusoidal samples from [0,PI).
+  --**********************************************************************
+  impure function InitRom(amplitude_i : in natural) return Rom_t is
+    variable tempRom_v   : Rom_t;
+    constant angleStep_c : real := MATH_PI / real(Rom_t'length);
+  begin
+    for i in Rom_t'range loop
+      tempRom_v(i) := TO_UNSIGNED(integer(floor(real(amplitude_i) * sin(real(i) * angleStep_c) + 0.5)), RomWord_t'length);
+    end loop;
+    return tempRom_v;
+  end function;
+
+  constant patternRom_r : Rom_t := InitRom(2**RomWord_t'length-1);  -- ROM declaration & initialization.
+
+  constant PROD_HI_C : natural := amplitude_i'length + RomWord_t'length - 1;
+  constant PROD_LO_C : natural := PROD_HI_C - sine_o'length + 1;
+  signal product_s   : unsigned(PROD_HI_C downto PROD_LO_C);  -- Just for delimiting the range of multiplier product.
+  signal ac_r        : unsigned(PROD_HI_C downto 0);
+  signal sine_r      : unsigned(sine_o'range);
+  constant ROUND_C   : unsigned(ac_r'range) := (PROD_LO_C-1=>ONE, others=>ZERO);
+
+begin
+
+  -- Read the sinusoid ROM and output the current sample every clock cycle. 
+  -- Increment the accumulator by the frequency input. 
+  process(clk_i)
+    variable addr_v : natural range 0 to NUM_SAMPLES_C-1;
+  begin
+    if rising_edge(clk_i) then
+      -- The upper bit of the accumulator determines whether sinusoid is positive or negative. 
+      -- The middle bits determine the location within the sinusoid lookup table.
+      -- The lower bits store the remainder.
+      phase_accum_r <= phase_accum_r + unsigned(freq_i);
+      addr_v := TO_INTEGER(addr_r);
+      ac_r   <= unsigned(amplitude_i) * patternRom_r(addr_v) + ROUND_C;
+      if half_r = ZERO then
+          sine_r <= unsigned(offset_i) + ac_r(product_s'range);
+      else
+          sine_r <= unsigned(offset_i) - ac_r(product_s'range);
+      end if;
+    end if;
+  end process;
+
+  sine_o <= std_logic_vector(sine_r);
+  
 end architecture;
