@@ -29,6 +29,9 @@ package SyncToClockPckg is
 
   -- Pass a bit into a clock domain.
   component SyncToClock is
+    generic (
+      NUM_SYNC_STAGES_G : natural := 2
+      );
     port (
       clk_i      : in  std_logic;       -- Clock for the domain being entered.
       unsynced_i : in  std_logic;       -- Signal that is entering domain.
@@ -38,6 +41,9 @@ package SyncToClockPckg is
 
   -- Pass a bus into a clock domain.
   component SyncBusToClock is
+    generic (
+      NUM_SYNC_STAGES_G : natural := 2
+      );
     port (
       clk_i      : in  std_logic;       -- Clock for the domain being entered.
       unsynced_i : in  std_logic_vector;  -- Bus signal that is entering domain.
@@ -53,6 +59,9 @@ library IEEE;
 use IEEE.STD_LOGIC_1164.all;
 
 entity SyncToClock is
+  generic (
+    NUM_SYNC_STAGES_G : natural := 2
+    );
   port (
     clk_i      : in  std_logic;         -- Clock for the domain being entered.
     unsynced_i : in  std_logic;         -- Signal that is entering domain.
@@ -62,20 +71,19 @@ end entity;
 
 
 architecture arch of SyncToClock is
-  constant syncStages_c : natural := 2;  -- Number of stages in the sync'ing register.
   -- This is the sync'ing shift register.  The index indicates the number of clocked flip-flops the incoming signal
   -- has passed through, so sync_r(1) is one clk_i cycle stage, sync_r(2) is two cycles, etc.
-  signal sync_r         : std_logic_vector(syncStages_c downto 1);
+  signal sync_r : std_logic_vector(NUM_SYNC_STAGES_G downto 1);
 begin
   process(clk_i)
   begin
     if rising_edge(clk_i) then
       -- Shift the unsync'ed signal into one end of the sync'ing register.
-      sync_r <= sync_r(syncStages_c-1 downto 1) & unsynced_i;
+      sync_r <= sync_r(NUM_SYNC_STAGES_G-1 downto 1) & unsynced_i;
     end if;
   end process;
   -- Output the sync'ed signal from the other end of the shift register.
-  synced_o <= sync_r(syncStages_c);
+  synced_o <= sync_r(NUM_SYNC_STAGES_G);
 end architecture;
 
 
@@ -85,6 +93,9 @@ use IEEE.STD_LOGIC_1164.all;
 use XESS.SyncToClockPckg.all;
 
 entity SyncBusToClock is
+  generic (
+    NUM_SYNC_STAGES_G : natural := 2
+    );
   port (
     clk_i      : in  std_logic;         -- Clock for the domain being entered.
     unsynced_i : in  std_logic_vector;  -- Bus signal that is entering domain.
@@ -98,6 +109,7 @@ begin
   SyncLoop : for i in unsynced_i'range generate
   begin
     USyncBit : SyncToClock
+      generic map(NUM_SYNC_STAGES_G => NUM_SYNC_STAGES_G)
       port map(
         clk_i      => clk_i,
         unsynced_i => unsynced_i(i),
