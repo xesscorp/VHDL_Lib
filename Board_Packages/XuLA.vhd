@@ -62,6 +62,6 @@ package XessBoardPckg is
   constant SDRAM_MULTIPLE_ACTIVE_ROWS_C : boolean := false;  -- If true, allow an active row in each bank.
   constant SDRAM_MAX_NOP_C              : natural := 10000;  -- Number of NOPs before entering self-refresh.
   constant SDRAM_BEG_ADDR_C             : natural := 16#00_0000#;  -- Beginning SDRAM address.
-  constant SDRAM_END_ADDR_C             : natural := 16#7F_FFFF#;  -- Ending SDRAM address.
+  constant SDRAM_END_ADDR_C             : natural := 16#3F_FFFF#;  -- Ending SDRAM address.
 
 end package;
