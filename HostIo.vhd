@@ -99,8 +99,8 @@ package HostIoPckg is
       clk_i     : in  std_logic;        -- Clock from RAM domain.
       ctrlIn_i  : in  std_logic;        -- Control signal from JTAG domain.
       ctrlOut_o : out std_logic;        -- Control signal to RAM domain.
-      opBegun_i : in  std_logic := HI;  -- R/W operation begun signal from RAM domain.
-      doneIn_i  : in  std_logic := HI;  -- R/W operation done signal from RAM domain.
+      opBegun_i : in  std_logic := LO;  -- R/W operation begun signal from RAM domain.
+      doneIn_i  : in  std_logic := LO;  -- R/W operation done signal from RAM domain.
       doneOut_o : out std_logic  -- R/W operation done signal to the JTAG domain. 
       );
   end component;
@@ -152,8 +152,8 @@ package HostIoPckg is
       dataFromHost_o : out std_logic_vector;       -- Data written to memory.
       rd_o           : out std_logic;   -- Read data from memory when high.
       dataToHost_i   : in  std_logic_vector;       -- Data read from memory.
-      opBegun_i      : in  std_logic := HI;  -- High when memory read/write operation has begun.
-      done_i         : in  std_logic := HI  -- High when memory read/write operation is done.
+      opBegun_i      : in  std_logic := LO;  -- High when memory read/write operation has begun.
+      done_i         : in  std_logic := LO  -- High when memory read/write operation is done.
       );
   end component;
 
@@ -628,27 +628,29 @@ entity RamCtrlSync is
     drck_i    : in  std_logic;          -- Clock from JTAG domain.
     clk_i     : in  std_logic;          -- Clock from RAM domain.
     ctrlIn_i  : in  std_logic;          -- Control signal from JTAG domain.
-    ctrlOut_o : out std_logic := LO;    -- Control signal to RAM domain.
-    opBegun_i : in  std_logic := HI;  -- R/W operation begun signal from RAM domain.
-    doneIn_i  : in  std_logic := HI;  -- R/W operation done signal from RAM domain.
-    doneOut_o : out std_logic := LO  -- R/W operation done signal to the JTAG domain. 
+    ctrlOut_o : out std_logic;          -- Control signal to RAM domain.
+    opBegun_i : in  std_logic := LO;  -- R/W operation begun signal from RAM domain.
+    doneIn_i  : in  std_logic := LO;  -- R/W operation done signal from RAM domain.
+    doneOut_o : out std_logic  -- R/W operation done signal to the JTAG domain. 
     );
 end entity;
 
 architecture arch of RamCtrlSync is
-  signal ctrlIn_s : std_logic;  -- JTAG domain control signal sync'ed to RAM domain.
-  signal ctrlOut_r : std_logic;
-  signal doneOut_s : std_logic;
+  signal ctrlIn_s  : std_logic := LO;  -- JTAG domain control signal sync'ed to RAM domain.
+  signal ctrlOut_r : std_logic := LO;
+  signal doneOut_r : std_logic := LO;
 begin
 
   -- Sync the RAM control signal from the JTAG clock domain to the RAM domain.
-  UCtrlSync : SyncToClock port map (clk_i => clk_i, unsynced_i => ctrlIn_i, synced_o => ctrlIn_s);
+  UCtrlSync : SyncToClock
+    generic map (NUM_SYNC_STAGES_G => 2)
+    port map (clk_i                => clk_i, unsynced_i => ctrlIn_i, synced_o => ctrlIn_s);
 
   -- Now raise-and-hold the output control signal to the RAM upon a rising edge of the input control signal.
   -- Lower the output control signal if the input control signal goes low or if the RAM signals that the 
   -- operation has begun or has finished.  
   process(clk_i)
-    variable prevCtrlIn_v : std_logic := HI;  -- Previous value of the input control signal.
+    variable prevCtrlIn_v : std_logic := LO;  -- Previous value of the input control signal.
   begin
     if rising_edge(clk_i) then
       if ctrlIn_s = LO then
@@ -664,7 +666,7 @@ begin
       prevCtrlIn_v := CtrlIn_s;  -- Store the previous value of the input control signal.
     end if;
   end process;
-  
+
   -- Make sure the RAM control signal is lowered as soon as the RAM starts doing or has completed
   -- its operation, otherwise the operation may be repeated.
   ctrlOut_o <= ctrlOut_r and not (doneIn_i or opBegun_i);
@@ -676,14 +678,14 @@ begin
   begin
     if rising_edge(clk_i) then
       if ctrlIn_s = LO then
-        doneOut_s <= LO;
+        doneOut_r <= LO;
       elsif doneIn_i = HI then
-        doneOut_s <= HI;
+        doneOut_r <= HI;
       end if;
     end if;
   end process;
-  
-  UDoneSync : SyncToClock port map (clk_i => drck_i, unsynced_i => doneOut_s, synced_o => doneOut_o);
+
+  UDoneSync : SyncToClock port map (clk_i => drck_i, unsynced_i => doneOut_r, synced_o => doneOut_o);
 
 end architecture;
 
@@ -725,26 +727,26 @@ entity HostIoToRam is
     dataFromHost_o : out std_logic_vector;       -- Data written to memory.
     rd_o           : out std_logic;     -- Read data from memory when high.
     dataToHost_i   : in  std_logic_vector;       -- Data read from memory.
-    opBegun_i      : in  std_logic := HI;  -- High when memory read/write operation has begun.
-    done_i         : in  std_logic := HI  -- High when memory read/write operation is done.
+    opBegun_i      : in  std_logic := LO;  -- High when memory read/write operation has begun.
+    done_i         : in  std_logic := LO  -- High when memory read/write operation is done.
     );
 end entity;
 
 
 architecture arch of HostIoToRam is
   -- Internal memory signals.
-  signal wr_s        : std_logic;
-  signal rd_s        : std_logic;
-  signal wrDone_s    : std_logic;
-  signal rdDone_s    : std_logic;
-  signal rwDone_s    : std_logic;
-  signal dataToHost_r : std_logic_vector(dataToHost_i'range);
-  signal dataToHost_s : std_logic_vector(dataToHost_i'range);
+  signal wr_s           : std_logic;
+  signal rd_s           : std_logic;
+  signal wrDone_s       : std_logic;
+  signal rdDone_s       : std_logic;
+  signal rwDone_s       : std_logic;
+  signal dataToHost_r   : std_logic_vector(dataToHost_i'range);
+  signal dataToHost_s   : std_logic_vector(dataToHost_i'range);
   -- Internal JTAG signals.
-  signal inShiftDr_s : std_logic;
-  signal drck_s      : std_logic;
-  signal tdi_s       : std_logic;
-  signal tdo_s       : std_logic;
+  signal inShiftDr_s    : std_logic;
+  signal drck_s         : std_logic;
+  signal tdi_s          : std_logic;
+  signal tdo_s          : std_logic;
 begin
 
   -- If you're only interfacing the JTAG port to a single module, then the
@@ -821,7 +823,7 @@ begin
         doneIn_i  => done_i,
         doneOut_o => rdDone_s
         );
-    
+
     -- Hold the data in a register so it doesn't change until the 
     -- slower host has a chance to read it.
     process(clk_i)
@@ -833,7 +835,7 @@ begin
       end if;
     end process;
     dataToHost_s <= dataToHost_r;
-    
+
     -- Only one read or write memory operation can be in-process at a time,
     -- so OR their done signals together to create a unified
     -- "memory operation done" signal.
@@ -843,10 +845,10 @@ begin
   -- Don't synchronize the JTAG interface to the memory clock domain.
   UUnsync : if SYNC_G = false generate
   begin
-    rwDone_s <= done_i;
-    rd_o     <= rd_s;
-    wr_o     <= wr_s;
-    dataToHost_s <= dataToHost_i;
+    rwDone_s       <= done_i;
+    rd_o           <= rd_s;
+    wr_o           <= wr_s;
+    dataToHost_s   <= dataToHost_i;
   end generate;
 
 end architecture;
@@ -1240,7 +1242,7 @@ begin
       end case;
     end if;
   end process;
-  
+
   -- This module interfaces a subtractor to the JTAG port so that it can be exercised by the PC host.
   UHostIoToSubtractor : HostIoToDut
     generic map (
@@ -1255,7 +1257,7 @@ begin
       vectorToDut_o   => toSub_s,
       vectorFromDut_i => difference_s
       );
-      
+
   -- This is the subtractor that interfaces to the module above.
   difference_s <= ('0' & toSub_s(7 downto 0)) - toSub_s(15 downto 8);
 
