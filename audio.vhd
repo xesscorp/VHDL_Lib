@@ -17,9 +17,10 @@
 -- <http://www.gnu.org/licenses/>.
 --**********************************************************************
 
---------------------------------------------------------------------
+--**********************************************************************
 --  A simple interface to the AK4565 stereo audio codec.
---------------------------------------------------------------------
+--**********************************************************************
+
 
 
 library IEEE, XESS;
@@ -36,10 +37,10 @@ package AudioPckg is
     port(
       rst_i  : in  std_logic := LO;     -- Active-high reset.
       clk_i  : in  std_logic;           -- Master clock.
-      csn_o  : out std_logic;  -- Active-low codec control port chip select.
+      csn_o  : out std_logic;  -- Active-low codec control port chip-select.
       cclk_o : out std_logic;           -- Codec control port clock.
       cdti_o : out std_logic;           -- Serial data to codec control port.
-      done_o : out std_logic   -- True/high when initialization is done.
+      done_o : out std_logic   -- True/high after initialization is complete.
       );
   end component;
 
@@ -87,10 +88,36 @@ package AudioPckg is
       mclk_o : out std_logic;  -- Master clock to codec (lower freq than master clock clk_i).
       sclk_o : out std_logic;           -- Serial bit clock = mclk / 4.
       lrck_o : out std_logic;           -- Left-right clock = sclk / 64.
-      sdti_o : out std_logic;           -- Serial data to codec DAC.
+      sdti_o : out std_logic;  -- Serial data to codec DAC and also the control port (during initialization).
       sdto_i : in  std_logic := LO;     -- Serial data from codec ADC.
-      csn_o  : out std_logic;
-      cclk_o : out std_logic
+      csn_o  : out std_logic;  -- Active-low codec control-port chip-select.
+      cclk_o : out std_logic            -- Codec control-port clock.
+      );
+  end component;
+
+  component AudioRamIntfc is
+    port (
+      clk_i            : in  std_logic;  -- Master clock.
+      rcrdStartAddr_i  : in  std_logic_vector;  -- Starting address for recording stereo audio samples.
+      numRcrdSamples_i : in  std_logic_vector;  -- Number of left/right channel samples to record.
+      rcrdSampleCntr_o : out std_logic_vector;  -- Outputs the number of recorded samples during a run.
+      playStartAddr_i  : in  std_logic_vector;  -- Starting address for stereo audio playback.
+      numPlaySamples_i : in  std_logic_vector;  -- Number of left/right channel samples to playback.
+      playSampleCntr_o : out std_logic_vector;  -- Outputs the number of samples played during a run.
+      run_i            : in  std_logic;  -- Raise to initiate record/playback.
+      rcrdDone_o       : out std_logic;  -- True when recording is done.
+      playDone_o       : out std_logic;  -- True when playback is done.
+      xfer_i           : in  std_logic;  -- True when samples are transferred in/out of the audio codec.
+      rcrdLeft_i       : in  std_logic_vector;  -- Input for samples from the codec left ADC channel.
+      rcrdRight_i      : in  std_logic_vector;  -- Input for samples from the codec right ADC channel.
+      playLeft_o       : out std_logic_vector;  -- Output for samples to the codec left DAC channel.
+      playRight_o      : out std_logic_vector;  -- Output for samples to the codec right DAC channel.
+      ramAddr_o        : out std_logic_vector;  -- RAM address bus.
+      ramData_i        : in  std_logic_vector;  -- Data from RAM.
+      ramData_o        : out std_logic_vector;  -- Data to RAM.
+      ramRd_o          : out std_logic;  -- RAM read control.
+      ramWr_o          : out std_logic;  -- RAM write control.
+      ramDone_i        : in  std_logic  -- Ram R/W operation complete when true.
       );
   end component;
 
@@ -98,9 +125,9 @@ end package;
 
 
 
------------------------------------------------------------------------
+--**********************************************************************
 -- Initialize the control registers of the AK4565 audio codec.
------------------------------------------------------------------------
+--**********************************************************************
 library IEEE, XESS;
 use IEEE.std_logic_1164.all;
 use IEEE.numeric_std.all;
@@ -262,9 +289,9 @@ end architecture;
 
 
 
------------------------------------------------------------------------
+--**********************************************************************
 -- Shift data into the audio codec DAC and out of the ADC.
------------------------------------------------------------------------
+--**********************************************************************
 library IEEE, XESS;
 use IEEE.std_logic_1164.all;
 use IEEE.numeric_std.all;
@@ -363,9 +390,9 @@ end arch;
 
 
 
-----------------------------------------------------------------------------------------
+--**********************************************************************
 -- Complete audio codec interface containing initialization and streaming modules.
-----------------------------------------------------------------------------------------
+--**********************************************************************
 library IEEE, XESS;
 use IEEE.std_logic_1164.all;
 use IEEE.std_logic_signed.all;
@@ -475,9 +502,186 @@ end architecture;
 
 
 
-----------------------------------------------------------------------------------------
+
+--**********************************************************************
+-- Interface for recording/playing stereo audio to/from RAM.
+--
+-- This finite state machine (FSM) takes left/right samples from the audio codec ADC and stores them
+-- in RAM, and transfers left/right samples from the RAM to the audio codec DAC for playback.
+
+-- Whenever the run control input is inactive, the FSM latches new values for the starting addresses
+-- and the number of samples for recording and playback.
+
+-- When the run control input is active, the FSM transfers values from the codec ADC, stores
+-- the left-channel value at address N, stores the right channel address at address N+1, and decrements
+-- the number of samples that remain to be recorded. Then it transfers RAM values at addresses M and M+1
+-- to the left and right codec DACs, respectively, and decrements the number of samples that remain
+-- to be played back.
+--**********************************************************************
+library IEEE, XESS;
+use IEEE.std_logic_1164.all;
+use IEEE.std_logic_signed.all;
+use IEEE.numeric_std.all;
+use XESS.CommonPckg.all;
+
+entity AudioRamIntfc is
+  port (
+    clk_i            : in  std_logic;   -- Master clock.
+    rcrdStartAddr_i  : in  std_logic_vector;  -- Starting address for recording stereo audio samples.
+    numRcrdSamples_i : in  std_logic_vector;  -- Number of left/right channel samples to record.
+    rcrdSampleCntr_o : out std_logic_vector;  -- Outputs the number of recorded samples during a run.
+    playStartAddr_i  : in  std_logic_vector;  -- Starting address for stereo audio playback.
+    numPlaySamples_i : in  std_logic_vector;  -- Number of left/right channel samples to playback.
+    playSampleCntr_o : out std_logic_vector;  -- Outputs the number of samples played during a run.
+    run_i            : in  std_logic;   -- Raise to initiate record/playback.
+    rcrdDone_o       : out std_logic;   -- True when recording is done.
+    playDone_o       : out std_logic;   -- True when playback is done.
+    xfer_i           : in  std_logic;  -- True when samples are transferred in/out of the audio codec.
+    rcrdLeft_i       : in  std_logic_vector;  -- Input for samples from the codec left ADC channel.
+    rcrdRight_i      : in  std_logic_vector;  -- Input for samples from the codec right ADC channel.
+    playLeft_o       : out std_logic_vector;  -- Output for samples to the codec left DAC channel.
+    playRight_o      : out std_logic_vector;  -- Output for samples to the codec right DAC channel.
+    ramAddr_o        : out std_logic_vector;  -- RAM address bus.
+    ramData_i        : in  std_logic_vector;  -- Data from RAM.
+    ramData_o        : out std_logic_vector;  -- Data to RAM.
+    ramRd_o          : out std_logic;   -- RAM read control.
+    ramWr_o          : out std_logic;   -- RAM write control.
+    ramDone_i        : in  std_logic   -- Ram R/W operation complete when true.
+    );
+end entity;
+
+architecture arch of AudioRamIntfc is
+  type FsmState_t is (WAIT_FOR_XFER,
+                      CHECK_RECORDING_ACTIVE, RECORD_LEFT, RECORD_RIGHT,
+                      CHECK_PLAYBACK_ACTIVE, PLAY_LEFT, PLAY_RIGHT);
+  signal fsmState_r       : FsmState_t := WAIT_FOR_XFER;
+  signal rcrdLeft_r       : std_logic_vector(rcrdLeft_i'range);  -- Holds the current sample from the codec left ADC channel.
+  signal rcrdRight_r      : std_logic_vector(rcrdRight_i'range);  -- Holds the current sample from the codec right ADC channel.
+  signal numRcrdSamples_r : unsigned(numRcrdSamples_i'range);  -- Holds the number of samples to be recorded during a run.
+  signal rcrdAddr_r       : unsigned(rcrdStartAddr_i'range);  -- Holds the address where the current sample will be recorded.
+  signal rcrdSampleCntr_r : unsigned(rcrdSampleCntr_o'range);  -- Holds the current number of samples that have been recorded.
+  signal numPlaySamples_r : unsigned(numPlaySamples_i'range);  --  Holds the number of samples to be played during a run.
+  signal playAddr_r       : unsigned(playStartAddr_i'range);  -- Holds the address of the current sample to be played.
+  signal playSampleCntr_r : unsigned(playSampleCntr_o'range);  -- Holds the current number of samples that have been played.
+begin
+
+  process(clk_i)
+  begin
+    if rising_edge(clk_i) then
+      case fsmState_r is
+        when WAIT_FOR_XFER =>  -- Waiting for transfer of samples to/from the audio codec.
+          ramWr_o <= NO;  -- Make sure reads/writes of RAM are turned off while waiting.
+          ramRd_o <= NO;
+          if run_i = YES then
+            -- If playback/record is active, then wait for the codec to accept/provide samples.
+            if xfer_i = YES then
+              -- Transfer is active, so latch the recorded samples from the codec.
+              rcrdLeft_r  <= rcrdLeft_i;
+              rcrdRight_r <= rcrdRight_i;
+              fsmState_r  <= CHECK_RECORDING_ACTIVE;  -- Start/continue with recording and playback.
+            end if;
+          else
+            -- Playback/record is not active, so just continually latch new values for the
+            -- playback/record starting addresses and number of samples.
+            numRcrdSamples_r <= unsigned(numRcrdSamples_i);
+            rcrdSampleCntr_r <= (others => ZERO);
+            rcrdAddr_r       <= unsigned(rcrdStartAddr_i);
+            numPlaySamples_r <= unsigned(numPlaySamples_i);
+            playSampleCntr_r <= (others => ZERO);
+            playAddr_r       <= unsigned(playStartAddr_i);
+            -- Zero the output after playback is done so charge doesn't build up in the DC-blocking capacitors.
+            playLeft_o       <= (others => ZERO);
+            playRight_o      <= (others => ZERO);
+          end if;
+        when CHECK_RECORDING_ACTIVE =>  -- Check to see if any samples remain to be recorded.
+          -- Register the current number of samples collected on the output bus.
+          rcrdSampleCntr_o <= std_logic_vector(rcrdSampleCntr_r);
+          if rcrdSampleCntr_r /= numRcrdSamples_r then
+            rcrdDone_o <= NO;  -- More samples needed, so indicate the recording is not done.
+            fsmState_r <= RECORD_LEFT;  -- Collect samples from the left and right channels.
+          else
+            rcrdDone_o <= YES;  -- No more samples needed, so indicate that the recording is done.
+            fsmState_r <= CHECK_PLAYBACK_ACTIVE;  -- Go to playback portion of this FSM.
+          end if;
+        when RECORD_LEFT =>  -- Sample the left codec channel and store it in RAM.
+          -- Output the current left-channel sample value and storage address for writing to RAM.
+          ramData_o <= rcrdLeft_r(rcrdLeft_r'high downto rcrdLeft_r'high-ramData_o'length+1);
+          ramAddr_o <= std_logic_vector(rcrdAddr_r);
+          ramWr_o   <= YES;
+          -- Hold the RAM data, address and write-control until the RAM indicates the write is completed.
+          if ramDone_i = YES then
+            -- Write of sample to RAM is done, so deactivate the write-control, advance write address
+            -- to the next location, and move to the next state.
+            ramWr_o    <= NO;
+            rcrdAddr_r <= rcrdAddr_r + 1;
+            fsmState_r <= RECORD_RIGHT;
+          end if;
+        when RECORD_RIGHT =>  -- Sample the right codec channel and store it in RAM.
+          -- Output the current right-channel sample value and storage address for writing to RAM.
+          ramData_o <= rcrdRight_r(rcrdRight_r'high downto rcrdRight_r'high-ramData_o'length+1);
+          ramAddr_o <= std_logic_vector(rcrdAddr_r);
+          ramWr_o   <= YES;
+          -- Hold the RAM data, address and write-control until the RAM indicates the write is completed.
+          if ramDone_i = YES then
+            -- Write of sample to RAM is done, so deactivate the write-control, advance write address
+            -- to the next location, increment the number of samples already collected,
+            -- and move to the next state.
+            ramWr_o          <= NO;
+            rcrdAddr_r       <= rcrdAddr_r + 1;
+            rcrdSampleCntr_r <= rcrdSampleCntr_r + 1;
+            fsmState_r       <= CHECK_PLAYBACK_ACTIVE;
+          end if;
+        when CHECK_PLAYBACK_ACTIVE =>  -- Check to see if any samples remain to be played back.
+          -- Register the current number of samples played on the output bus.
+          playSampleCntr_o <= std_logic_vector(playSampleCntr_r);
+          if playSampleCntr_r /= numPlaySamples_r then
+            playDone_o <= NO;  -- More samples needed, so indicate the playback is not done.
+            fsmState_r <= PLAY_LEFT;  -- Playback samples from the left and right channels.
+          else
+            playDone_o <= YES;  -- No more samples needed, so indicate that the playback is done.
+            fsmState_r <= WAIT_FOR_XFER;  -- Go back and wait for another sample from the codec.
+          end if;
+        when PLAY_LEFT =>  -- Read the next sample from RAM and send it to the left codec channel.
+          -- Output the current left-channel sample storage address for reading from RAM.
+          ramAddr_o <= std_logic_vector(playAddr_r);
+          ramRd_o   <= YES;
+          -- Hold the RAM address and read-control until the RAM delivers the sample value.
+          if ramDone_i = YES then
+            -- Register and output the left sample value so the codec can grab it during the next transfer.
+            playLeft_o <= ramData_i & "0000";
+            -- Read of sample from RAM is done, so deactivate the read-control, advance read address
+            -- to the next location, and move to the next state.
+            ramRd_o    <= NO;
+            playAddr_r <= playAddr_r + 1;
+            fsmState_r <= PLAY_RIGHT;
+          end if;
+        when PLAY_RIGHT =>  -- Read the next sample from RAM and send it to the right codec channel.
+          -- Output the current right-channel sample storage address for reading from RAM.
+          ramAddr_o <= std_logic_vector(playAddr_r);
+          ramRd_o   <= YES;
+          -- Hold the RAM address and read-control until the RAM delivers the sample value.
+          if ramDone_i = YES then
+            -- Register and output the right sample value so the codec can grab it during the next transfer.
+            playRight_o      <= ramData_i & "0000";
+            -- Read of sample from RAM is done, so deactivate the read-control, advance read address
+            -- to the next location, increment the number of samples that have been played,
+            -- and move to the next state.
+            ramRd_o          <= NO;
+            playAddr_r       <= playAddr_r + 1;
+            playSampleCntr_r <= playSampleCntr_r + 1;
+            fsmState_r       <= WAIT_FOR_XFER;  -- Go back and wait for another sample from the codec.
+          end if;
+      end case;
+    end if;
+  end process;
+end architecture;
+
+
+
+
+--**********************************************************************
 -- A simple loopback test.
-----------------------------------------------------------------------------------------
+--**********************************************************************
 
 library IEEE, XESS;
 use IEEE.std_logic_1164.all;
