@@ -138,6 +138,9 @@ Library Contents
         
     LedDigits.vhd:
         An interface to the Charlieplexed LED array on the StickIt! LED Digits module.
+        
+    Misc.vhd:
+        Miscellaneous modules that don't fit under any other category.
 
     MemTest.vhd:
         A module that writes a random stream of values to memory.
