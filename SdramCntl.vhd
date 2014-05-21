@@ -205,6 +205,17 @@ package SdramCntlPckg is
       );
   end component;
 
+  component RWHandshake is
+    port (
+      rd_i   : in  std_logic;           -- Read control signal.
+      rd_o   : out std_logic;  -- Read control signal that goes to host-side of SDRAM controller.
+      wr_i   : in  std_logic;           -- Write control signal.
+      wr_o   : out std_logic;  -- Write control signal that goes to host-side of SDRAM controller.
+      done_i : in  std_logic;  -- R/W op done signal from host-side of SDRAM controller.
+      done_o : out std_logic            -- R/W done status signal.
+      );
+  end component;
+
 end package;
 
 
@@ -840,6 +851,72 @@ begin
   end process update;
 
 end architecture;
+
+
+
+
+--*********************************************************************
+-- Handshake circuit for SDRAM controller R/W control signals.
+--
+-- This circuit transforms the R/W/done control signals into a handshake
+-- interface: you have to raise the control (rd_i or wr_i), then wait for
+-- the done_o signal to go high, then lower the control signal, and then
+-- the done_o signal goes low. Meanwhile, the control signals that go to
+-- the SDRAM controller (rd_o and wr_o) are sequenced so that there is no
+-- chance of doing a double read or write, and the one-cycle done_i signal
+-- from the SDRAM controller is held high by the handshake circuit so the
+-- initiator has a chance to see it. 
+--
+--         R/W_i   _____/--------------------------\_____
+--         R/W_o   _____/--------------\_________________
+--         done_i  ____________________/--\______________
+--         done_o  ____________________/-----------\_____
+--*********************************************************************
+
+library IEEE, XESS;
+use IEEE.std_logic_1164.all;
+use XESS.CommonPckg.all;
+use XESS.MiscPckg.all;
+use work.XessBoardPckg.all;
+
+entity RWHandshake is
+  port (
+    rd_i   : in  std_logic;             -- Read control signal.
+    rd_o   : out std_logic;  -- Read control signal that goes to host-side of SDRAM controller.
+    wr_i   : in  std_logic;             -- Write control signal.
+    wr_o   : out std_logic;  -- Write control signal that goes to host-side of SDRAM controller.
+    done_i : in  std_logic;  -- R/W op done signal from host-side of SDRAM controller.
+    done_o : out std_logic              -- R/W done status signal.
+    );
+end entity;
+
+architecture arch of RWHandshake is
+  signal rdDone_s : std_logic;
+  signal wrDone_s : std_logic;
+begin
+
+  uRead : HandshakeIntfc
+    port map(
+      ctrl_i => rd_i,
+      ctrl_o => rd_o,
+      done_i => done_i,
+      done_o => rdDone_s
+      );
+
+  uWrite : HandshakeIntfc
+    port map(
+      ctrl_i => wr_i,
+      ctrl_o => wr_o,
+      done_i => done_i,
+      done_o => wrDone_s
+      );
+
+  -- Read and write operations never occur simultaneously, so we can present a
+  -- single, unified done signal to the initiator.
+  done_o <= rdDone_s or wrDone_s;
+  
+end architecture;
+
 
 
 
