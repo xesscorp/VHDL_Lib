@@ -30,9 +30,14 @@ use XESS.CommonPckg.all;
 
 package AudioPckg is
 
+  constant MIC_INPUT_C  : natural := 16#02#;
+  constant LINE_INPUT_C : natural := 16#08#;
+
   component AudioInit is
     generic(
-      FREQ_G : real := 100.0            -- Master clock frequency (in MHz).
+      FREQ_G         : real    := 100.0;  -- Master clock frequency (in MHz).
+      INPUT_SOURCE_G : natural := LINE_INPUT_C;  -- Audio input source, either line-in or microphone.
+      INPUT_GAIN_G   : real    := 0.0  -- Gain (in dB) of amplifier preceding codec ADC.
       );
     port(
       rst_i  : in  std_logic := LO;     -- Active-high reset.
@@ -70,8 +75,10 @@ package AudioPckg is
 
   component Audio is
     generic(
-      FREQ_G       : real    := 100.0;  -- Master clock frequency (in MHz).
-      RESOLUTION_G : natural := 20      -- # bits in ADC/DAC.
+      FREQ_G         : real    := 100.0;  -- Master clock frequency (in MHz).
+      RESOLUTION_G   : natural := 20;   -- # bits in ADC/DAC.
+      INPUT_SOURCE_G : natural := LINE_INPUT_C;  -- Audio input source, either line-in or microphone.
+      INPUT_GAIN_G   : real    := 0.0  -- Gain (in dB) of amplifier preceding codec ADC.
       );
     port(
       rst_i : in std_logic := NO;       -- Active-high reset.
@@ -134,10 +141,13 @@ use IEEE.numeric_std.all;
 use IEEE.std_logic_arith.all;
 use IEEE.MATH_REAL.all;
 use XESS.CommonPckg.all;
+use XESS.AudioPckg.all;
 
 entity AudioInit is
   generic(
-    FREQ_G : real := 100.0              -- Master clock frequency (in MHz).
+    FREQ_G         : real    := 100.0;  -- Master clock frequency (in MHz).
+    INPUT_SOURCE_G : natural := LINE_INPUT_C;  -- Audio input source, either line-in or microphone.
+    INPUT_GAIN_G   : real    := 0.0  -- Gain (in dB) of amplifier preceding codec ADC.
     );
   port(
     rst_i  : in  std_logic := LO;       -- Active-high reset.
@@ -157,8 +167,35 @@ architecture arch of AudioInit is
   constant REG_LEN_C       : natural := 8;  -- Length of control register.
   constant TOTAL_REG_LEN_C : natural := OPCODE_LEN_C + ADDR_LEN_C + REG_LEN_C;
 
-  -- Function for initializing the bit string that will be loaded into codec control registers.
-  function RegInit(reg0, reg1, reg2, reg3, reg4, reg5, reg6, reg7 : in integer) return std_logic_vector is
+  -- Function to convert an input gain into the correct code to load into the audio codec register.
+  function GainToAK4565Code(gain : in real; src : in natural) return natural is
+    variable adjustedGain_v : real;
+    type GainCodeTable_t is array(0 to 16#60#) of real;
+    constant GAIN_CODE_TABLE_C : GainCodeTable_t := (-54.0, -50.0, -46.0, -42.0,
+                 -39.0, -37.0, -35.0, -33.0, -31.0, -29.0, -27.0, -25.0, -23.0, -21.0, -19.0, -17.0,
+                 -15.5, -14.5, -13.5, -12.5, -11.5, -10.5, -9.5, -8.5,
+                 -7.75, -7.25, -6.75, -6.25, -5.75, -5.25, -4.75, -4.25, -3.75, -3.25, -2.75, -2.25,
+                 -1.75, -1.25, -0.75, -0.25, 0.25, 0.75, 1.25, 1.75, 2.25, 2.75, 3.25, 3.75, 4.25, 4.75,
+                 5.25, 5.75, 6.25, 6.75, 7.25, 7.75, 8.25, 8.75, 9.25, 9.75, 10.25, 10.75, 11.25, 11.75,
+                 12.25, 12.75, 13.25, 13.75, 14.25, 14.75, 15.25, 15.75, 16.25, 16.75, 17.25, 17.75,
+                 18.25, 18.75, 19.25, 19.75, 20.25, 20.75, 21.25, 21.75, 22.25, 22.75, 23.25, 23.75,
+                 24.25, 24.75, 25.25, 25.75, 26.25, 26.75, 27.25, 27.75, 100000.0);
+  begin
+    if src = MIC_INPUT_C then
+      adjustedGain_v := gain;
+    else
+      adjustedGain_v := gain + 22.0;
+    end if;
+    for gainCode in GAIN_CODE_TABLE_C'range loop
+      if adjustedGain_v < GAIN_CODE_TABLE_C(gainCode) then
+        return gainCode;
+      end if;
+    end loop;
+    return GAIN_CODE_TABLE_C'high;
+  end function;
+
+  -- Function for initializing the bit string that will be loaded into codec Input PGA Control register (page 29 of AK4565 datasheet).
+  function RegInit(reg0, reg1, reg2, reg3, reg4, reg5, reg6, reg7 : in natural) return std_logic_vector is
     constant WRITE_OPCODE_C : std_logic_vector := "111";  -- Write opcode for codec control port.
     variable regInitBits_v  : std_logic_vector(NUM_REGS_C * TOTAL_REG_LEN_C - 1 downto 0);
   begin
@@ -174,7 +211,7 @@ architecture arch of AudioInit is
   end function;
 
   -- Bit string that contains the initialization data to load into codec control registers.
-  --   R0: Input Select     - 0x08 = Line-in; 0x2 = Microphone. (Change this to change ADC input between line and microphone.)
+  --   R0: Input Select     - 0x08 = Line-in; 0x02 = Microphone. (Change this to change ADC input between line and microphone.)
   --   R1: Power Mgmt       - 0x15 = Everything ON; 0x00 = Everything OFF.
   --   R2: Mode Ctrl        - 0x19 = No de-emphasis, 20-bit MSB-justified serial data, 48 KHz data sampling, muting OFF.
   --   R3: Timer Select     - 0x01 = 125 us ALC limiter period, 8 ms ALC recovery period, 8 ms zero-crossing timeout, 24 ms fading period.
@@ -183,8 +220,8 @@ architecture arch of AudioInit is
   --   R6: Operation Mode   - 0x00 = ALC disabled, fade in/out disabled.
   --   R7: Input Gain Ctrl  - 0x28 = -22 dB in line mode, 0 dB in microphone mode.
   signal regInitBits_r : std_logic_vector(NUM_REGS_C * TOTAL_REG_LEN_C-1 downto 0)
-    := RegInit(16#02#, 16#15#, 16#19#, 16#01#, 16#00#, 16#28#, 16#00#, 16#28#);
-  
+    := RegInit(INPUT_SOURCE_G, 16#15#, 16#19#, 16#01#, 16#00#, 16#28#, 16#00#, GainToAK4565Code(INPUT_GAIN_G, INPUT_SOURCE_G));
+
   signal shiftEn_s : std_logic := NO;  -- Enable shifting of bits into control registers.
   signal cclk_s    : std_logic := LO;  -- Internal version of control port clock. 
   signal cclkEn_s  : std_logic := NO;  -- When true, enable external control-port clock.
@@ -403,8 +440,10 @@ use XESS.CommonPckg.all;
 
 entity Audio is
   generic(
-    FREQ_G       : real    := 100.0;    -- Master clock frequency (in MHz).
-    RESOLUTION_G : natural := 20        -- # bits in ADC/DAC.
+    FREQ_G         : real    := 100.0;  -- Master clock frequency (in MHz).
+    RESOLUTION_G   : natural := 20;     -- # bits in ADC/DAC.
+    INPUT_SOURCE_G : natural := LINE_INPUT_C;  -- Audio input source, either line-in or microphone.
+    INPUT_GAIN_G   : real    := 0.0  -- Gain (in dB) of amplifier preceding codec ADC.
     );
   port(
     rst_i : in std_logic := NO;         -- Active-high reset.
@@ -442,7 +481,9 @@ begin
   -- Instantiate the codec initialization module.
   u1 : AudioInit
     generic map(
-      FREQ_G => FREQ_G
+      FREQ_G         => FREQ_G,
+      INPUT_SOURCE_G => INPUT_SOURCE_G,
+      INPUT_GAIN_G   => INPUT_GAIN_G
       )
     port map(
       rst_i  => rst_i,
@@ -594,8 +635,7 @@ begin
             playRight_o      <= (others => ZERO);
           end if;
         when CHECK_RECORDING_ACTIVE =>  -- Check to see if any samples remain to be recorded.
-          -- Register the current number of samples collected on the output bus.
-          rcrdSampleCntr_o <= std_logic_vector(rcrdSampleCntr_r);
+          
           if rcrdSampleCntr_r /= numRcrdSamples_r then
             rcrdDone_o <= NO;  -- More samples needed, so indicate the recording is not done.
             fsmState_r <= RECORD_LEFT;  -- Collect samples from the left and right channels.
@@ -629,11 +669,10 @@ begin
             ramWr_o          <= NO;
             rcrdAddr_r       <= rcrdAddr_r + 1;
             rcrdSampleCntr_r <= rcrdSampleCntr_r + 1;
+            rcrdSampleCntr_o <= std_logic_vector(rcrdSampleCntr_r); -- Register the current number of samples collected on the output bus.
             fsmState_r       <= CHECK_PLAYBACK_ACTIVE;
           end if;
         when CHECK_PLAYBACK_ACTIVE =>  -- Check to see if any samples remain to be played back.
-          -- Register the current number of samples played on the output bus.
-          playSampleCntr_o <= std_logic_vector(playSampleCntr_r);
           if playSampleCntr_r /= numPlaySamples_r then
             playDone_o <= NO;  -- More samples needed, so indicate the playback is not done.
             fsmState_r <= PLAY_LEFT;  -- Playback samples from the left and right channels.
@@ -669,6 +708,7 @@ begin
             ramRd_o          <= NO;
             playAddr_r       <= playAddr_r + 1;
             playSampleCntr_r <= playSampleCntr_r + 1;
+            playSampleCntr_o <= std_logic_vector(playSampleCntr_r);  -- Register the current number of samples played on the output bus.
             fsmState_r       <= WAIT_FOR_XFER;  -- Go back and wait for another sample from the codec.
           end if;
       end case;
