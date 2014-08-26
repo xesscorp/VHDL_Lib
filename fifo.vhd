@@ -299,7 +299,7 @@ begin
   rmvAllow_s <= rmv_i and not empty_s;
   addAllow_s <= add_i and not full_s;
 
-  process (rst_i, clk_i, ram_r, rmvAddr_r)
+  process (rst_i, clk_i)
   begin
     if rst_i = '1' then
       rmvAddr_r <= 0;
@@ -308,6 +308,9 @@ begin
     elsif rising_edge(clk_i) then
       if rmvAllow_s = YES then
         rmvAddr_r <= rmvAddr_r + 1;
+        data_o <= ram_r(rmvAddr_r + 1);  -- Data at the front of the FIFO is always available on the output.
+      else
+        data_o <= ram_r(rmvAddr_r);  -- Data at the front of the FIFO is always available on the output.
       end if;
       if addAllow_s = YES then
         ram_r(addAddr_r) <= data_i;
@@ -319,7 +322,6 @@ begin
         level_r <= level_r - 1;
       end if;
     end if;
-    data_o <= ram_r(rmvAddr_r);  -- Data at the front of the FIFO is always available on the output.
   end process;
 
   full_o  <= full_s;
