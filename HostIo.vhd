@@ -159,11 +159,12 @@ package HostIoPckg is
 
   component HostIoToDut is
     generic (
-      ID_G               : std_logic_vector := "11111111";  -- The ID this module responds to.
-      PYLD_CNTR_LENGTH_G : natural          := 32;  -- Length of payload bit counter.
-      FPGA_DEVICE_G      : FpgaFamily_t     := FPGA_FAMILY_C;  -- FPGA device type.
-      TAP_USER_INSTR_G   : TapUserInstr_t   := TAP_USER_INSTR_C;  -- USER instruction this module responds to.
-      SIMPLE_G           : boolean          := false  -- If true, include BscanToHostIo module in this module.
+      ID_G                 : std_logic_vector := "11111111";  -- The ID this module responds to.
+      PYLD_CNTR_LENGTH_G   : natural          := 32;  -- Length of payload bit counter.
+      FPGA_DEVICE_G        : FpgaFamily_t     := FPGA_FAMILY_C;  -- FPGA device type.
+      TAP_USER_INSTR_G     : TapUserInstr_t   := TAP_USER_INSTR_C;  -- USER instruction this module responds to.
+      SIMPLE_G             : boolean          := false;  -- If true, include BscanToHostIo module in this module.
+      OUTPUT_RESET_VALUE_G : std_logic        := LO  -- Value assigned to vectorToDut_o outputs upon reset.
       );
     port (
       reset_i         : in  std_logic := LO;  -- Active-high reset signal.
@@ -735,18 +736,18 @@ end entity;
 
 architecture arch of HostIoToRam is
   -- Internal memory signals.
-  signal wr_s           : std_logic;
-  signal rd_s           : std_logic;
-  signal wrDone_s       : std_logic;
-  signal rdDone_s       : std_logic;
-  signal rwDone_s       : std_logic;
-  signal dataToHost_r   : std_logic_vector(dataToHost_i'range);
-  signal dataToHost_s   : std_logic_vector(dataToHost_i'range);
+  signal wr_s         : std_logic;
+  signal rd_s         : std_logic;
+  signal wrDone_s     : std_logic;
+  signal rdDone_s     : std_logic;
+  signal rwDone_s     : std_logic;
+  signal dataToHost_r : std_logic_vector(dataToHost_i'range);
+  signal dataToHost_s : std_logic_vector(dataToHost_i'range);
   -- Internal JTAG signals.
-  signal inShiftDr_s    : std_logic;
-  signal drck_s         : std_logic;
-  signal tdi_s          : std_logic;
-  signal tdo_s          : std_logic;
+  signal inShiftDr_s  : std_logic;
+  signal drck_s       : std_logic;
+  signal tdi_s        : std_logic;
+  signal tdo_s        : std_logic;
 begin
 
   -- If you're only interfacing the JTAG port to a single module, then the
@@ -845,10 +846,10 @@ begin
   -- Don't synchronize the JTAG interface to the memory clock domain.
   UUnsync : if SYNC_G = false generate
   begin
-    rwDone_s       <= done_i;
-    rd_o           <= rd_s;
-    wr_o           <= wr_s;
-    dataToHost_s   <= dataToHost_i;
+    rwDone_s     <= done_i;
+    rd_o         <= rd_s;
+    wr_o         <= wr_s;
+    dataToHost_s <= dataToHost_i;
   end generate;
 
 end architecture;
@@ -903,11 +904,12 @@ use work.XessBoardPckg.all;
 
 entity HostIoToDut is
   generic (
-    ID_G               : std_logic_vector := "11111111";  -- The ID this module responds to.
-    PYLD_CNTR_LENGTH_G : natural          := 32;  -- Length of payload bit counter.
-    FPGA_DEVICE_G      : FpgaFamily_t     := FPGA_FAMILY_C;  -- FPGA device type.
-    TAP_USER_INSTR_G   : TapUserInstr_t   := TAP_USER_INSTR_C;  -- USER instruction this module responds to.
-    SIMPLE_G           : boolean          := false  -- If true, include BscanToHostIo module in this module.
+    ID_G                 : std_logic_vector := "11111111";  -- The ID this module responds to.
+    PYLD_CNTR_LENGTH_G   : natural          := 32;  -- Length of payload bit counter.
+    FPGA_DEVICE_G        : FpgaFamily_t     := FPGA_FAMILY_C;  -- FPGA device type.
+    TAP_USER_INSTR_G     : TapUserInstr_t   := TAP_USER_INSTR_C;  -- USER instruction this module responds to.
+    SIMPLE_G             : boolean          := false;  -- If true, include BscanToHostIo module in this module.
+    OUTPUT_RESET_VALUE_G : std_logic        := LO  -- Value assigned to vectorToDut_o outputs upon reset.
     );
   port (
     reset_i         : in  std_logic := LO;  -- Active-high reset signal.
@@ -1059,6 +1061,9 @@ begin
           shiftReg_r(vectorToDut_o'length-1) <= ONE;  -- ... set MSbit so we can tell when all bits are received.
         end if;
         bitCntr_r <= 0;
+        if reset_i = HI then  -- Only reset input vector to DUT when a hard reset occurs.
+          vectorToDut_o <= (others => OUTPUT_RESET_VALUE_G);
+        end if;
       end if;
     end if;
 
