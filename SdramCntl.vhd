@@ -416,8 +416,9 @@ begin
 
   combinatorial : process(rd_i, wr_i, addr_i, data_i, sdramData_r, sdData_io, state_r, opBegun_x,
                           activeFlag_r, activeRow_r, activeBank_r, rdPipeline_r, wrPipeline_r,
+                          wrInProgress_s, rdInProgress_s, activateInProgress_s, doActivate_s, doSelfRfsh_s,
                           sdramDataOppPhase_r, nopCntr_r, lock_i, rfshCntr_r, timer_r, rasTimer_r,
-                          wrTimer_r, refTimer_r, cmd_r, col_s, ba_r, cke_r)
+                          wrTimer_r, refTimer_r, cmd_r, row_s, col_s, ba_r, ba_x, bank_s, bankIndex_s, cke_r)
   begin
 
     --*********************************************************************
