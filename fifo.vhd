@@ -280,18 +280,21 @@ entity FifoCc is
 end entity;
 
 architecture arch of FifoCc is
-  signal full_s     : std_logic;
-  signal empty_s    : std_logic;
+  signal full_s             : std_logic;
+  signal empty_s            : std_logic;
   subtype Address_t is natural range 0 to LENGTH_G-1;
-  signal rmvAddr_r  : Address_t := 0;
-  signal addAddr_r  : Address_t := 0;
+  signal rmvAddr_r          : Address_t := 0;
+  signal addAddr_r          : Address_t := 0;
   subtype Level_t is natural range 0 to LENGTH_G;
-  signal level_r    : Level_t   := 0;
-  signal rmvAllow_s : std_logic;
-  signal addAllow_s : std_logic;
+  signal level_r            : Level_t   := 0;
+  signal rmvAllow_s         : std_logic;
+  signal addAllow_s         : std_logic;
   subtype RamWord_t is std_logic_vector(data_i'range);  -- RAM word type.
   type Ram_t is array (0 to LENGTH_G-1) of RamWord_t;  -- array of RAM words type.
-  signal ram_r      : Ram_t;            -- RAM declaration.
+  signal ram_r              : Ram_t;    -- RAM declaration.
+  signal frontData_r        : RamWord_t;
+  signal shortCircuitData_r : RamWord_t;
+  signal shortCircuit_r     : std_logic;
 begin
 
   full_s     <= YES when level_r = Level_t'high else NO;
@@ -302,19 +305,27 @@ begin
   process (rst_i, clk_i)
   begin
     if rst_i = '1' then
-      rmvAddr_r <= 0;
-      addAddr_r <= 0;
-      level_r   <= 0;
+      rmvAddr_r      <= 0;
+      addAddr_r      <= 0;
+      level_r        <= 0;
+      shortCircuit_r <= NO;
     elsif rising_edge(clk_i) then
+      shortCircuit_r <= NO;
       if rmvAllow_s = YES then
-        rmvAddr_r <= rmvAddr_r + 1;
-        data_o <= ram_r(rmvAddr_r + 1);  -- Data at the front of the FIFO is always available on the output.
+        rmvAddr_r   <= rmvAddr_r + 1;
+        frontData_r <= ram_r(rmvAddr_r + 1);  -- Data at the front of the FIFO is always available on the output.
       else
-        data_o <= ram_r(rmvAddr_r);  -- Data at the front of the FIFO is always available on the output.
+        frontData_r <= ram_r(rmvAddr_r);  -- Data at the front of the FIFO is always available on the output.
       end if;
       if addAllow_s = YES then
         ram_r(addAddr_r) <= data_i;
         addAddr_r        <= addAddr_r + 1;
+        if level_r = 0 then
+          -- If data is added to an empty FIFO, then we have to "short-circuit" the
+          -- input data directly onto the FIFO output.
+          shortCircuit_r     <= YES;
+          shortCircuitData_r <= data_i;
+        end if;
       end if;
       if (addAllow_s and not rmvAllow_s) = YES then
         level_r <= level_r + 1;
@@ -324,6 +335,7 @@ begin
     end if;
   end process;
 
+  data_o  <= shortCircuitData_r when shortCircuit_r = YES else frontData_r;
   full_o  <= full_s;
   empty_o <= empty_s;
   level_o <= std_logic_vector(TO_UNSIGNED(level_r, level_o'length));
