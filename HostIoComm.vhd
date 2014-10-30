@@ -343,8 +343,8 @@ begin
   -- Delay removal of the data from the upload FIFO until the host has a chance to read it.
   uRmvDelay : delayLine
     generic map(NUM_DELAY_CYCLES_G => 1)
-    port map(clk_i                 => clk_i, a_i => upRmv_s, aDelayed_o => upRmvDelayed_s);
-
+    port map(clk_i => clk_i, a_i => upRmv_s, aDelayed_o => upRmvDelayed_s);
+    
   -- The Up FIFO takes data from the FPGA module and delivers it to the host.
   UpFifo : FifoCc
     generic map(
@@ -607,3 +607,81 @@ begin
 
 end architecture;
 
+
+
+
+
+--**********************************************************************
+-- This is a simple design for echoing characters received from a host
+-- back to the host from an FPGA module.
+--**********************************************************************
+
+library IEEE, XESS;
+use IEEE.std_logic_1164.all;
+use IEEE.numeric_std.all;
+use IEEE.math_real.all;
+use XESS.CommonPckg.all;
+use XESS.ClkGenPckg.all;
+use XESS.HostIoCommPckg.all;
+use XESS.MiscPckg.all;
+use work.XessBoardPckg.all;
+
+entity EchoTest is
+  port (
+    fpgaClk_i : in std_logic            -- XuLA 12 MHz clock.
+    );
+end entity;
+
+architecture arch of EchoTest is
+  signal clk_s                : std_logic;         -- Clock.
+  signal reset_s              : std_logic  := HI;  -- Active-high reset.
+  signal rmv_r                : std_logic  := LO;
+  signal add_r                : std_logic  := LO;
+  signal dly_r                : natural range 0 to 1;
+  signal dataFromHost_s       : std_logic_vector(7 downto 0);
+  signal dataToHost_r         : unsigned(7 downto 0);
+  signal empty_s, full_s      : std_logic;
+begin
+
+  -- Generate 100 MHz clock from 12 MHz XuLA clock.
+  u0 : ClkGen generic map(CLK_MUL_G => 25, CLK_DIV_G => 3) port map(i => fpgaClk_i, o => clk_s);
+  
+  -- Generatre active-high reset.
+  u1: ResetGenerator generic map(PULSE_DURATION_G => 10) port map(clk_i => clk_s, reset_o => reset_s);
+
+  -- Instantiate the communication interface.
+  u2 : HostIoComm
+    generic map(
+      SIMPLE_G  => true
+      )
+    port map(
+      reset_i   => reset_s,
+      clk_i     => clk_s,
+      rmv_i     => rmv_r, -- Remove data received from the host.
+      data_o    => dataFromHost_s, -- Data from the host.
+      dnEmpty_o => empty_s,
+      add_i     => add_r, -- Add received data to FIFO going back to host (echo).
+      data_i    => std_logic_vector(dataToHost_r), -- Data to host.
+      upFull_o  => full_s
+      );
+
+  -- This process scans the incoming FIFO for characters received from the host.
+  -- Then it removes a character from the host FIFO and places it in the FIFO that
+  -- transmits back to the host. It then waits a clock cycle while the FIFO statuses
+  -- are updated. Then it repeats the process.
+  echoProcess : process(clk_s)
+  begin
+    if rising_edge(clk_s) then
+      rmv_r  <= LO;
+      add_r  <= LO;
+      dly_r  <= 0;
+      if (reset_s = LO) and (dly_r = 0) and (empty_s = NO) and (full_s = NO) then
+        rmv_r        <= HI; -- Removes char received from host.
+        dataToHost_r <= unsigned(dataFromHost_s);  -- Store the char.
+        add_r        <= HI; -- Places char on FIFO back to host.
+        dly_r        <= 1;  -- Delay one cycle so FIFO statuses can update.
+      end if;
+    end if;
+  end process;
+
+end architecture;
