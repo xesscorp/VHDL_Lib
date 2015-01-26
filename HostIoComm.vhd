@@ -637,17 +637,18 @@ architecture arch of EchoTest is
   signal reset_s              : std_logic  := HI;  -- Active-high reset.
   signal rmv_r                : std_logic  := LO;
   signal add_r                : std_logic  := LO;
-  signal dly_r                : natural range 0 to 1;
   signal dataFromHost_s       : std_logic_vector(7 downto 0);
   signal dataToHost_r         : unsigned(7 downto 0);
   signal empty_s, full_s      : std_logic;
 begin
 
   -- Generate 100 MHz clock from 12 MHz XuLA clock.
-  u0 : ClkGen generic map(CLK_MUL_G => 25, CLK_DIV_G => 3) port map(i => fpgaClk_i, o => clk_s);
+  u0 : ClkGen generic map(CLK_MUL_G => 25, CLK_DIV_G => 3) 
+              port map(i => fpgaClk_i, o => clk_s);
   
-  -- Generatre active-high reset.
-  u1: ResetGenerator generic map(PULSE_DURATION_G => 10) port map(clk_i => clk_s, reset_o => reset_s);
+  -- Generate active-high reset.
+  u1: ResetGenerator generic map(PULSE_DURATION_G => 10) 
+                     port map(clk_i => clk_s, reset_o => reset_s);
 
   -- Instantiate the communication interface.
   u2 : HostIoComm
@@ -667,19 +668,20 @@ begin
 
   -- This process scans the incoming FIFO for characters received from the host.
   -- Then it removes a character from the host FIFO and places it in the FIFO that
-  -- transmits back to the host. It then waits a clock cycle while the FIFO statuses
-  -- are updated. Then it repeats the process.
+  -- transmits back to the host. This process works on the falling clock edge
+  -- while the HostIoComm works on the rising clock edge. So the control signals
+  -- for the echo transfer are set up on the falling edge and the actual transfer
+  -- between FIFOs occurs on the next rising edge. The FIFO statuses are also updated
+  -- on the rising edge so they can have an effect on this process on the next falling edge.
   echoProcess : process(clk_s)
   begin
-    if rising_edge(clk_s) then
+    if falling_edge(clk_s) then
       rmv_r  <= LO;
       add_r  <= LO;
-      dly_r  <= 0;
-      if (reset_s = LO) and (dly_r = 0) and (empty_s = NO) and (full_s = NO) then
+      if (reset_s = LO) and (empty_s = NO) and (full_s = NO) then
         rmv_r        <= HI; -- Removes char received from host.
-        dataToHost_r <= unsigned(dataFromHost_s);  -- Store the char.
+        dataToHost_r <= unsigned(dataFromHost_s);  -- Echo the char.
         add_r        <= HI; -- Places char on FIFO back to host.
-        dly_r        <= 1;  -- Delay one cycle so FIFO statuses can update.
       end if;
     end if;
   end process;
