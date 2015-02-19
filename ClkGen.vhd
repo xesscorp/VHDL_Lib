@@ -1,5 +1,5 @@
 --**********************************************************************
--- Copyright (c) 2011-2014 by XESS Corp <http://www.xess.com>.
+-- Copyright (c) 2011-2015 by XESS Corp <http://www.xess.com>.
 -- All rights reserved.
 --
 -- This library is free software; you can redistribute it and/or
@@ -28,9 +28,9 @@ use IEEE.STD_LOGIC_1164.all;
 
 package ClkGenPckg is
 
---**********************************************************************
--- Generate a clock frequency from a master clock.
---**********************************************************************
+  --**********************************************************************
+  -- Generate a clock frequency from a master clock.
+  --**********************************************************************
   component ClkGen is
     generic (
       BASE_FREQ_G : real                  := 12.0;  -- Input frequency in MHz.
@@ -45,10 +45,10 @@ package ClkGenPckg is
       );
   end component;
 
---**********************************************************************
--- Send a clock signal to an output pin or some logic that's not
--- on an FPGA clock network.
---**********************************************************************
+  --**********************************************************************
+  -- Send a clock signal to an output pin or some logic that's not
+  -- on an FPGA clock network.
+  --**********************************************************************
   component ClkToLogic is
     port (
       clk_i  : in  std_logic;           -- Positive-phase of clock input.
@@ -57,20 +57,33 @@ package ClkGenPckg is
       );
   end component;
 
---**********************************************************************
--- Generate a slow clock from a faster clock.
---**********************************************************************
+  --**********************************************************************
+  -- Send a clock signal to an output pin or some logic that's not
+  -- on an FPGA clock network. This uses some flip-flops and an XOR
+  -- to generate the output clock, so it's edges won't be very close
+  -- to the edges of the input clock.  
+  --**********************************************************************
+  component DirtyClkToLogic is
+    port (
+      clk_i : in  std_logic;            -- Clock input.
+      clk_o : out std_logic   -- Clock output that's suitable as a logic input.
+      );
+  end component;
+
+  --**********************************************************************
+  -- Generate a slow clock from a faster clock.
+  --**********************************************************************
   component SlowClkGen is
     generic(
       INPUT_FREQ_G  : real;             -- Input frequency (MHz).
       OUTPUT_FREQ_G : real              -- Output frequency (MHz).
       );
     port(
-      clk_i : in  std_logic;          -- Input clock.
-      clk_o : out std_logic          -- Output clock.
+      clk_i : in  std_logic;            -- Input clock.
+      clk_o : out std_logic             -- Output clock.
       );
   end component;
-
+  
 end package;
 
 
@@ -172,6 +185,41 @@ begin
 end architecture;
 
 
+library IEEE, UNISIM, XESS;
+use IEEE.STD_LOGIC_1164.all;
+use XESS.CommonPckg.all;
+use UNISIM.VComponents.all;
+
+--**********************************************************************
+-- Send a clock signal to an output pin or some logic that's not
+-- on an FPGA clock network. This uses some flip-flops and an XOR
+-- to generate the output clock, so it's edges won't be very close
+-- to the edges of the input clock.  
+--**********************************************************************
+entity DirtyClkToLogic is
+  port (
+    clk_i : in  std_logic;              -- Clock input.
+    clk_o : out std_logic   -- Clock output that's suitable as a logic input.
+    );
+end entity;
+
+architecture arch of DirtyClkToLogic is
+begin
+  process(clk_i)
+    variable phase1_v : std_logic := ZERO;
+    variable phase2_v : std_logic := ZERO;
+  begin
+    if rising_edge(clk_i) then
+      phase1_v := not phase1_v;
+    end if;
+    if falling_edge(clk_i) then
+      phase2_v := not phase2_v;
+    end if;
+    clk_o <= (phase1_v xor phase2_v);
+  end process;
+end architecture;
+
+
 library IEEE, XESS;
 use IEEE.STD_LOGIC_1164.all;
 use IEEE.math_real.all;
@@ -186,8 +234,8 @@ entity SlowClkGen is
     OUTPUT_FREQ_G : real                -- Output frequency (MHz).
     );
   port(
-    clk_i : in  std_logic;            -- Input clock.
-    clk_o : out std_logic            -- Output clock.
+    clk_i : in  std_logic;              -- Input clock.
+    clk_o : out std_logic               -- Output clock.
     );
 end entity;
 
