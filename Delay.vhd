@@ -23,8 +23,9 @@
 -- Modules for delaying signals and buses by a given number of clocks.
 --**********************************************************************
 
-library IEEE;
+library IEEE, XESS;
 use IEEE.STD_LOGIC_1164.all;
+use XESS.CommonPckg.all;
 
 package DelayPckg is
 
@@ -36,9 +37,10 @@ package DelayPckg is
       NUM_DELAY_CYCLES_G : natural := 1
       );
     port (
-      clk_i      : in  std_logic;       -- Master clock.
-      a_i        : in  std_logic;       -- Signal to be delayed.
-      aDelayed_o : out std_logic        -- Delayed version of signal.
+      clk_i      : in  std_logic;         -- Master clock.
+      cke_i      : in  std_logic := YES;  -- Clock-enable.
+      a_i        : in  std_logic;         -- Signal to be delayed.
+      aDelayed_o : out std_logic          -- Delayed version of signal.
       );
   end component;
 
@@ -51,6 +53,7 @@ package DelayPckg is
       );
     port (
       clk_i        : in  std_logic;         -- Master clock.
+      cke_i        : in  std_logic := YES;  -- Clock-enable.
       bus_i        : in  std_logic_vector;  -- Signal bus to be delayed.
       busDelayed_o : out std_logic_vector   -- Delayed version of signal bus.
       );
@@ -65,8 +68,9 @@ end package;
 -- Module for delaying a signal by a given number of clock cycles.
 --**********************************************************************
 
-library IEEE;
+library IEEE, XESS;
 use IEEE.STD_LOGIC_1164.all;
+use XESS.CommonPckg.all;
 
 entity DelayLine is
   generic (
@@ -74,6 +78,7 @@ entity DelayLine is
     );
   port (
     clk_i      : in  std_logic;         -- Master clock.
+    cke_i      : in  std_logic := YES;  -- Clock-enable.
     a_i        : in  std_logic;         -- Signal to be delayed.
     aDelayed_o : out std_logic          -- Delayed version of signal.
     );
@@ -85,10 +90,12 @@ begin
   process(clk_i)
   begin
     if rising_edge(clk_i) then
-      delay_r(1) <= a_i;
-      for d in 2 to NUM_DELAY_CYCLES_G loop
-        delay_r(d) <= delay_r(d-1);
-      end loop;
+      if cke_i = YES then
+        delay_r(1) <= a_i;
+        for d in 2 to NUM_DELAY_CYCLES_G loop
+          delay_r(d) <= delay_r(d-1);
+        end loop;
+      end if;
     end if;
   end process;
   aDelayed_o <= delay_r(NUM_DELAY_CYCLES_G);
@@ -103,6 +110,7 @@ end architecture;
 
 library IEEE, XESS;
 use IEEE.STD_LOGIC_1164.all;
+use XESS.CommonPckg.all;
 use XESS.DelayPckg.all;
 
 entity DelayBus is
@@ -111,6 +119,7 @@ entity DelayBus is
     );
   port (
     clk_i        : in  std_logic;         -- Master clock.
+    cke_i        : in  std_logic := YES;  -- Clock-enable.
     bus_i        : in  std_logic_vector;  -- Signal bus to be delayed.
     busDelayed_o : out std_logic_vector   -- Delayed version of signal bus.
     );
@@ -124,6 +133,7 @@ begin
       generic map(NUM_DELAY_CYCLES_G => NUM_DELAY_CYCLES_G)
       port map(
         clk_i      => clk_i,
+        cke_i      => cke_i,
         a_i        => bus_i(j),
         aDelayed_o => busDelayed_o(j)
         );  
