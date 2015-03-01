@@ -177,7 +177,8 @@ architecture arch of LedPanelDriver is
   signal lowerPixel_r         : Pixel_t;
   type PixelRam_t is array(0 to DBLWIDE_MAX_ADDR_C) of Pixel_t;
   signal upperPixelRam_r      : PixelRam_t;
-  signal lowerPixelRam_r : PixelRam_t := (0 => X"FFFF", 8 => X"FFFF", 13 => X"FFFF",
+  signal lowerPixelRam_r : PixelRam_t := (0 => X"FFFF", 33=>X"03ff", 64 => X"7c00", 128 => X"03e0", 192 => X"001F",
+                                          256 => X"7C1F", 320 => X"7fe0", 384 => X"03ff",
                                           others => X"0000");  -- Storage for RGB pixels going to LED panel.
   -- This is the subfield of the input address that can be applied to the pixel RAM.
   subtype addrField_t is natural range Log2(MAX_ADDR_C)-1+addr_i'low downto addr_i'low+1;
@@ -193,7 +194,7 @@ architecture arch of LedPanelDriver is
 
   -- Constants and signals for controlling how many times each row is displayed
   -- before moving to the next row.
-  constant NUM_ROW_REPEAT_C : natural := 32;
+  constant NUM_ROW_REPEAT_C : natural := 8;
   constant MAX_ROW_REPEAT_C : natural := NUM_ROW_REPEAT_C - 1;
   signal rowRptCntr_r       : natural range 0 to MAX_ROW_REPEAT_C;
 
@@ -207,7 +208,7 @@ architecture arch of LedPanelDriver is
   
   signal clk_r : std_logic;
   signal latch_r : std_logic;
-  signal row_s : std_logic_vector(row_o'range);
+--  signal row_s : std_logic_vector(row_o'range);
   
 begin
 
@@ -315,6 +316,34 @@ begin
       end if;
     end if;
   end process;
+  
+  -- This process updates the address to the pixel RAM.
+  process(clk_i)
+  begin
+    if rising_edge(clk_i) then
+      if rst_i = NO then  -- Normal (non-reset) operations go here.
+        if enbl_r = YES then
+          if col_r /= 2 then   -- Currently within a row of LEDs.
+            -- This is the normal incrementing through the pixel RAM.
+            addr_r      <= addr_r + 1;
+          else                          -- At the end of a row of LEDs.
+            if rowRptCntr_r > 0 then
+              -- Not done repeating this row, so go back to the starting 
+              -- address for this row of pixels.
+              addr_r       <= addr_r - NCOLS_C;
+            else
+              if row_r = FINAL_ROW_C then
+                -- Reached the last row of pixels, so go back to the beginning.
+                addr_r <= 0;
+              end if;
+            end if;
+          end if;
+        end if;
+      else
+        addr_r <= 2;
+      end if;
+    end if;
+  end process;
 
   process (clk_i)
   begin
@@ -353,7 +382,7 @@ begin
           if col_r > 0 then   -- Currently within a row of LEDs.
             -- This is the normal incrementing through the pixel RAM and the
             -- LEDs of a row of the panel.
-            addr_r      <= addr_r + 1;
+--            addr_r      <= addr_r + 1;
             col_r       <= col_r - 1;
             newThresh_r <= NO;  -- Keep the same color threshold for an entire display row.
           else                          -- At the end of a row of LEDs.
@@ -362,12 +391,12 @@ begin
             if rowRptCntr_r > 0 then
               -- Not done repeating this row, so go back to the starting 
               -- address for this row of pixels.
-              addr_r       <= addr_r - NCOLS_C;
+--              addr_r       <= addr_r - NCOLS_C;
               rowRptCntr_r <= rowRptCntr_r - 1;  -- Decrement the row-repeat counter.
             else
               if row_r = FINAL_ROW_C then
                 -- Reached the last row of pixels, so go back to the beginning.
-                addr_r <= 0;
+--                addr_r <= 0;
               end if;
               rowRptCntr_r <= MAX_ROW_REPEAT_C;  -- Roll-over the row-repeat counter.
             end if;
@@ -386,7 +415,7 @@ begin
         end if;
         
       else                    -- Reset values for the control signals.
-        addr_r       <= 0;    -- Start at the beginning of the pixel RAM.
+--        addr_r       <= 0;    -- Start at the beginning of the pixel RAM.
         col_r        <= START_COL_C;              -- Start at the beginning of a row.
         row_r        <= FINAL_ROW_C;  -- Start at the final row because it will roll-over to zero.
         latch_r      <= LO;   -- No RGB bits output yet, so don't latch.
@@ -401,18 +430,20 @@ begin
   -- Delay the clock, latch and row signals to the LED panel by two clock cycles
   -- so they line up with the RGB signals.
   
-  uClkDly: DelayLine
-    generic map(NUM_DELAY_CYCLES_G => 2)
-    port map(clk_i=>clk_i, cke_i=>enbl_r, a_i=>clk_r, aDelayed_o=>clk_o);
+  clk_o <= clk_r;
+  -- uClkDly: DelayLine
+    -- generic map(NUM_DELAY_CYCLES_G => 2)
+    -- port map(clk_i=>clk_i, cke_i=>enbl_r, a_i=>clk_r, aDelayed_o=>clk_o);
+  
+  latch_o <= latch_r;  
+  -- uLtchDly: DelayLine
+    -- generic map(NUM_DELAY_CYCLES_G => 2)
+    -- port map(clk_i=>clk_i, cke_i=>enbl_r, a_i=>latch_r, aDelayed_o=>latch_o);
     
-  uLtchDly: DelayLine
-    generic map(NUM_DELAY_CYCLES_G => 2)
-    port map(clk_i=>clk_i, cke_i=>enbl_r, a_i=>latch_r, aDelayed_o=>latch_o);
-    
-  row_s <= std_logic_vector(TO_UNSIGNED(row_r, row_o'length));  -- Output the active row to the display.
-  uRowDly: DelayBus
-    generic map(NUM_DELAY_CYCLES_G => 2)
-    port map(clk_i=>clk_i, cke_i=>enbl_r, bus_i=>row_s, busDelayed_o=>row_o);
+  row_o <= std_logic_vector(TO_UNSIGNED(row_r, row_o'length));  -- Output the active row to the display.
+  -- uRowDly: DelayBus
+    -- generic map(NUM_DELAY_CYCLES_G => 2)
+    -- port map(clk_i=>clk_i, cke_i=>enbl_r, bus_i=>row_s, busDelayed_o=>row_o);
 
   oe_bo <= LO;                          -- Always keep the display enabled.
 end architecture;
