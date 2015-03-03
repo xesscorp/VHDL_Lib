@@ -150,27 +150,23 @@ end entity;
 architecture arch of LedPanelDriver is
 
   -- Constants and signals for the size of the LED panel in pixels.
-  constant NPIXELS_C   : natural := NPANELS_G * PANEL_WIDTH_G * PANEL_HEIGHT_G;
   constant NCOLS_C     : natural := NPANELS_G * PANEL_WIDTH_G;  -- # cols wide.
-  constant START_COL_C : natural := NCOLS_C;     -- Index of first column.
   constant NROWS_C     : natural := PANEL_HEIGHT_G;  -- # of rows tall.
-  constant FINAL_ROW_C : natural := NROWS_C / 2 -1;  -- Index of last row in a half-panel.
-  signal row_r         : natural range 0 to FINAL_ROW_C;  -- Active row.
-  signal col_r         : natural range 0 to START_COL_C;  -- Current column.
+  constant NPIXELS_C   : natural := NCOLS_C * NROWS_C;
+  signal col_r         : natural range 0 to NCOLS_C - 1;  -- Current column.
+  signal row_r         : natural range 0 to NROWS_C - 1;  -- Active row.
 
   -- Compute clock for display circuitry based on number of pixels and the refresh rate.
   constant DISPLAY_FREQ_C : real := real(NPIXELS_C)/2.0 * REFRESH_RATE_G / 10.0**6;
   constant CLK_DIVISOR_C : natural := integer(ceil(FREQ_G / DISPLAY_FREQ_C));
   signal enbl_r: std_logic := NO; -- Clock-enable flag for dividing clock.
-  constant CLK_PULSE_WIDTH_C : natural := CLK_DIVISOR_C / 2;
-  signal clkPulseCnt_r: natural range 0 to CLK_PULSE_WIDTH_C;
 
   -- Constants and signals for the pixel RAM.
   -- The pixel_i/pixel_o buses are a single pixel wide. The output display bus
   -- from the RAM is two pixels wide so the display circuitry can simultaneously
   -- fetch pixels for the upper and lower halves of the LED panel.
-  constant MAX_ADDR_C         : natural := NROWS_C * NCOLS_C - 1;
-  constant DBLWIDE_MAX_ADDR_C : natural := NROWS_C * NCOLS_C / 2 - 1;
+  constant MAX_ADDR_C         : natural := NPIXELS_C - 1;
+  constant DBLWIDE_MAX_ADDR_C : natural := NPIXELS_C / 2 - 1;
   signal addr_r               : natural range 0 to DBLWIDE_MAX_ADDR_C;
   subtype Pixel_t is unsigned(pixel_i'range);  -- The pixel_i bus determines the width of pixels.
   signal upperPixel_r         : Pixel_t;
@@ -194,9 +190,8 @@ architecture arch of LedPanelDriver is
 
   -- Constants and signals for controlling how many times each row is displayed
   -- before moving to the next row.
-  constant NUM_ROW_REPEAT_C : natural := 8;
-  constant MAX_ROW_REPEAT_C : natural := NUM_ROW_REPEAT_C - 1;
-  signal rowRptCntr_r       : natural range 0 to MAX_ROW_REPEAT_C;
+  constant NROW_REPEAT_C : natural := 8;
+  signal rowRpt_r           : natural range 0 to NROW_REPEAT_C - 1;
 
   -- Threshold that determines whether a given value of a color field will cause
   -- the associated LED to turn on.
@@ -208,7 +203,7 @@ architecture arch of LedPanelDriver is
   
   signal clk_r : std_logic;
   signal latch_r : std_logic;
---  signal row_s : std_logic_vector(row_o'range);
+  signal row_s : std_logic_vector(row_o'range);
   
 begin
 
@@ -260,7 +255,8 @@ begin
       seed_i => X"FFFFFFFF",
       rand_o => randNum_s
       );
-  thresh_s <= TO_INTEGER(unsigned(randNum_s(threshField_t)));
+  --thresh_s <= TO_INTEGER(unsigned(randNum_s(threshField_t)));
+  thresh_s <= 15;
 
   -- This process reads the pixel RAMs and computes the
   -- RGB bits for the LED array.
@@ -287,7 +283,7 @@ begin
         -- If this is the last time the row is displayed, then just leave all
         -- the LEDs off. (This helps prevent "ghosting" when the next row of
         -- pixels is enabled.)
-        if rowRptCntr_r > 0 then
+        if rowRpt_r /= NROW_REPEAT_C - 1 then
           -- Compare the pixel field for the red color component to the threshold.
           if TO_INTEGER(upperPixel_r(redField_t)) > thresh_s then
             red1_o <= ONE;
@@ -317,112 +313,42 @@ begin
     end if;
   end process;
   
-  -- This process updates the address to the pixel RAM.
   process(clk_i)
   begin
     if rising_edge(clk_i) then
-      if rst_i = NO then  -- Normal (non-reset) operations go here.
-        if enbl_r = YES then
-          if col_r /= 2 then   -- Currently within a row of LEDs.
-            -- This is the normal incrementing through the pixel RAM.
-            addr_r      <= addr_r + 1;
-          else                          -- At the end of a row of LEDs.
-            if rowRptCntr_r > 0 then
-              -- Not done repeating this row, so go back to the starting 
-              -- address for this row of pixels.
-              addr_r       <= addr_r - NCOLS_C;
-            else
-              if row_r = FINAL_ROW_C then
-                -- Reached the last row of pixels, so go back to the beginning.
+      if rst_i = YES then
+        addr_r <= 0;
+        row_r <= 0;
+        col_r <= 0;
+        rowRpt_r <= 0;
+        clk_r <= LO;
+        latch_r <= LO;
+      elsif enbl_r = YES then
+        clk_r <= not clk_r; -- Toggle output clock at half of input clock frequency.
+        if clk_r = HI then -- Output clock is about to go low.
+          latch_r <= LO;
+          col_r <= col_r + 1;
+          addr_r <= addr_r + 1;
+          if col_r = NCOLS_C - 1 then
+            col_r <= 0;
+            addr_r <= addr_r - NCOLS_C + 1;
+            rowRpt_r <= rowRpt_r + 1;
+            if rowRpt_r = NROW_REPEAT_C - 1 then
+              rowRpt_r <= 0;
+              addr_r <= addr_r + 1;
+              row_r <= row_r + 1;
+              if row_r = NROWS_C - 1 then
+                row_r <= 0;
                 addr_r <= 0;
               end if;
             end if;
           end if;
-        end if;
-      else
-        addr_r <= 2;
-      end if;
-    end if;
-  end process;
-
-  process (clk_i)
-  begin
-    if rising_edge(clk_i) then
-      clk_r <= LO; -- Default assignment.
-      latch_r <= LO;
-      newThresh_r <= NO;
-      
-      -- Generate the control signals for the LED array.
-      if rst_i = NO then  -- Normal (non-reset) operations go here.
-        if enbl_r = YES then
-        
-          clkPulseCnt_r <= CLK_PULSE_WIDTH_C;
-
-          -- Latch the just-completed row of pixels into the panel's display
-          -- register just before the first pixel of the new row is output..
-          -- if col_r = 1 then
-            -- latch_o <= HI;              -- Latch new LED outputs for this row.
-          -- end if;
-
-          -- Switch the display row after the row of pixels has been latched.
-          -- The pixel row should be set to all-zero
-          -- from the last scan of the previous row, so this will power the new
-          -- row with all the LEDs initially off to reduce ghosting.
-          if col_r = START_COL_C and rowRptCntr_r = MAX_ROW_REPEAT_C then
-            if row_r < FINAL_ROW_C then
-              row_r <= row_r + 1;
-            else
-              row_r <= 0;  -- This was the last row, so roll-over the counter.
-            end if;
-          end if;
-
-          -- Increment the column counter until it rolls over at the end of the row.
-          -- Activate the latch at the end of the at the end of the row and
-          -- increment the row counter.
-          if col_r > 0 then   -- Currently within a row of LEDs.
-            -- This is the normal incrementing through the pixel RAM and the
-            -- LEDs of a row of the panel.
---            addr_r      <= addr_r + 1;
-            col_r       <= col_r - 1;
-            newThresh_r <= NO;  -- Keep the same color threshold for an entire display row.
-          else                          -- At the end of a row of LEDs.
-            col_r       <= START_COL_C;   -- Go back to the start of a row of LEDs.
-            newThresh_r <= YES;  -- Get a new color threshold for each row display.
-            if rowRptCntr_r > 0 then
-              -- Not done repeating this row, so go back to the starting 
-              -- address for this row of pixels.
---              addr_r       <= addr_r - NCOLS_C;
-              rowRptCntr_r <= rowRptCntr_r - 1;  -- Decrement the row-repeat counter.
-            else
-              if row_r = FINAL_ROW_C then
-                -- Reached the last row of pixels, so go back to the beginning.
---                addr_r <= 0;
-              end if;
-              rowRptCntr_r <= MAX_ROW_REPEAT_C;  -- Roll-over the row-repeat counter.
-            end if;
-          end if;
-        else                            -- Enable is off.
-          if col_r > 0 then
-            if clkPulseCnt_r = 0 then
-              clk_r <= HI;
-              if col_r = 1 then
-                latch_r <= HI;
-              end if;
-            else
-              clkPulseCnt_r <= clkPulseCnt_r - 1;
-            end if;
+        else -- Output clock is about to go high.
+          latch_r <= LO;
+          if col_r = NCOLS_C - 1 then
+            latch_r <= HI;
           end if;
         end if;
-        
-      else                    -- Reset values for the control signals.
---        addr_r       <= 0;    -- Start at the beginning of the pixel RAM.
-        col_r        <= START_COL_C;              -- Start at the beginning of a row.
-        row_r        <= FINAL_ROW_C;  -- Start at the final row because it will roll-over to zero.
-        latch_r      <= LO;   -- No RGB bits output yet, so don't latch.
-        clk_r        <= LO;
-        newThresh_r  <= NO;
-        rowRptCntr_r <= MAX_ROW_REPEAT_C;  -- Initialize row-repeat counter.
-        clkPulseCnt_r <= 0;
       end if;
     end if;
   end process;
@@ -435,15 +361,16 @@ begin
     -- generic map(NUM_DELAY_CYCLES_G => 2)
     -- port map(clk_i=>clk_i, cke_i=>enbl_r, a_i=>clk_r, aDelayed_o=>clk_o);
   
-  latch_o <= latch_r;  
-  -- uLtchDly: DelayLine
-    -- generic map(NUM_DELAY_CYCLES_G => 2)
-    -- port map(clk_i=>clk_i, cke_i=>enbl_r, a_i=>latch_r, aDelayed_o=>latch_o);
+  -- latch_o <= latch_r;  
+  uLtchDly: DelayLine
+    generic map(NUM_DELAY_CYCLES_G => 2)
+    port map(clk_i=>clk_i, cke_i=>enbl_r, a_i=>latch_r, aDelayed_o=>latch_o);
     
-  row_o <= std_logic_vector(TO_UNSIGNED(row_r, row_o'length));  -- Output the active row to the display.
-  -- uRowDly: DelayBus
-    -- generic map(NUM_DELAY_CYCLES_G => 2)
-    -- port map(clk_i=>clk_i, cke_i=>enbl_r, bus_i=>row_s, busDelayed_o=>row_o);
+  -- row_o <= std_logic_vector(TO_UNSIGNED(row_r, row_o'length));  -- Output the active row to the display.
+  row_s <= std_logic_vector(TO_UNSIGNED(row_r, row_o'length));
+  uRowDly: DelayBus
+    generic map(NUM_DELAY_CYCLES_G => 4)
+    port map(clk_i=>clk_i, cke_i=>enbl_r, bus_i=>row_s, busDelayed_o=>row_o);
 
   oe_bo <= LO;                          -- Always keep the display enabled.
 end architecture;
