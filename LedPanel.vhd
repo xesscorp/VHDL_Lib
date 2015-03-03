@@ -165,19 +165,13 @@ architecture arch of LedPanelDriver is
   -- The pixel_i/pixel_o buses are a single pixel wide. The output display bus
   -- from the RAM is two pixels wide so the display circuitry can simultaneously
   -- fetch pixels for the upper and lower halves of the LED panel.
-  constant MAX_ADDR_C         : natural := NPIXELS_C - 1;
-  constant DBLWIDE_MAX_ADDR_C : natural := NPIXELS_C / 2 - 1;
-  signal addr_r               : natural range 0 to DBLWIDE_MAX_ADDR_C;
+  signal addr_r               : natural range 0 to NPIXELS_C - 1;
   subtype Pixel_t is unsigned(pixel_i'range);  -- The pixel_i bus determines the width of pixels.
-  signal upperPixel_r         : Pixel_t;
-  signal lowerPixel_r         : Pixel_t;
-  type PixelRam_t is array(0 to DBLWIDE_MAX_ADDR_C) of Pixel_t;
-  signal upperPixelRam_r      : PixelRam_t;
-  signal lowerPixelRam_r : PixelRam_t := (0 => X"FFFF", 33=>X"03ff", 64 => X"7c00", 128 => X"03e0", 192 => X"001F",
+  signal pixel_r         : Pixel_t;
+  type PixelRam_t is array(0 to NPIXELS_C - 1) of Pixel_t;
+  signal pixelRam_r : PixelRam_t := (0 => X"FFFF", 33=>X"03ff", 64 => X"7c00", 128 => X"03e0", 192 => X"001F",
                                           256 => X"7C1F", 320 => X"7fe0", 384 => X"03ff",
                                           others => X"0000");  -- Storage for RGB pixels going to LED panel.
-  -- This is the subfield of the input address that can be applied to the pixel RAM.
-  subtype addrField_t is natural range Log2(MAX_ADDR_C)-1+addr_i'low downto addr_i'low+1;
 
   -- Definitions and types for the color fields in each pixel.
   -- The pixel width is divided into three, equal-sized fields for the red,
@@ -204,6 +198,7 @@ architecture arch of LedPanelDriver is
   signal clk_r : std_logic;
   signal latch_r : std_logic;
   signal row_s : std_logic_vector(row_o'range);
+  signal red_r, grn_r, blu_r, red1_r, grn1_r, blu1_r : std_logic;
   
 begin
 
@@ -213,18 +208,10 @@ begin
     if rising_edge(clk_i) then
       if wr_i = YES then
         -- Write a single pixel to the appropriate half of the pixel RAM.
-        if addr_i(addr_i'low) = ZERO then
-          lowerPixelRam_r(TO_INTEGER(unsigned(addr_i(addrField_t)))) <= unsigned(pixel_i);
-        else
-          upperPixelRam_r(TO_INTEGER(unsigned(addr_i(addrField_t)))) <= unsigned(pixel_i);
-        end if;
+        pixelRam_r(TO_INTEGER(unsigned(addr_i))) <= unsigned(pixel_i);
       elsif rd_i = YES then
         -- Read a single pixel from the appropriate half of the pixel RAM.
-        if addr_i(addr_i'low) = ZERO then
-          pixel_o <= std_logic_vector(lowerPixelRam_r(TO_INTEGER(unsigned(addr_i(addrField_t)))));
-        else
-          pixel_o <= std_logic_vector(upperPixelRam_r(TO_INTEGER(unsigned(addr_i(addrField_t)))));
-        end if;
+        pixel_o <= std_logic_vector(pixelRam_r(TO_INTEGER(unsigned(addr_i))));
       end if;
     end if;
   end process;
@@ -267,17 +254,14 @@ begin
         -- Fetch two pixels from the double-wide port of the pixel RAM.
         -- The pixel at the even address is in one half of the panel,
         -- and the pixel at the odd address is in the other half.
-        lowerPixel_r <= lowerPixelRam_r(addr_r);  -- Pixel for lower half of LED array.
-        upperPixel_r <= upperPixelRam_r(addr_r);  -- Pixel for upper half of LED array.
+        pixel_r <= pixelRam_r(addr_r);  -- Pixel for lower half of LED array.
+        -- upperPixel_r <= upperPixelRam_r(addr_r);  -- Pixel for upper half of LED array.
 
         -- Compare the color fields of both pixels against the threshold 
         -- to determine which LEDs should be active or not.
-        red1_o <= ZERO;  -- Start off assuming all LEDs will be off.
-        grn1_o <= ZERO;
-        blu1_o <= ZERO;
-        red2_o <= ZERO;
-        grn2_o <= ZERO;
-        blu2_o <= ZERO;
+        red_r <= ZERO;  -- Start off assuming all LEDs will be off.
+        grn_r <= ZERO;
+        blu_r <= ZERO;
         -- If this isn't the last time the row will be displayed, then compare
         -- the color fields against the threshold to see which LEDs are on.
         -- If this is the last time the row is displayed, then just leave all
@@ -285,29 +269,30 @@ begin
         -- pixels is enabled.)
         if rowRpt_r /= NROW_REPEAT_C - 1 then
           -- Compare the pixel field for the red color component to the threshold.
-          if TO_INTEGER(upperPixel_r(redField_t)) > thresh_s then
-            red1_o <= ONE;
+          if TO_INTEGER(pixel_r(redField_t)) > thresh_s then
+            red_r <= ONE;
           end if;
           -- Same thing for the green field of the upper pixel.
-          if TO_INTEGER(upperPixel_r(grnField_t)) > thresh_s then
-            grn1_o <= ONE;
+          if TO_INTEGER(pixel_r(grnField_t)) > thresh_s then
+            grn_r <= ONE;
           end if;
           -- Same thing for the blue field of the upper pixel.
-          if TO_INTEGER(upperPixel_r(bluField_t)) > thresh_s then
-            blu1_o <= ONE;
+          if TO_INTEGER(pixel_r(bluField_t)) > thresh_s then
+            blu_r <= ONE;
           end if;
-          -- Same thing for the red field of the lower pixel.
-          if TO_INTEGER(lowerPixel_r(redField_t)) > thresh_s then
-            red2_o <= ONE;
-          end if;
-          -- Same thing for the green field of the lower pixel.
-          if TO_INTEGER(lowerPixel_r(grnField_t)) > thresh_s then
-            grn2_o <= ONE;
-          end if;
-          -- Same thing for the blue field of the lower pixel.
-          if TO_INTEGER(lowerPixel_r(bluField_t)) > thresh_s then
-            blu2_o <= ONE;
-          end if;
+        end if;
+        
+        if clk_r = LO then
+          red1_r <= red_r;
+          grn1_r <= grn_r;
+          blu1_r <= blu_r;
+        else
+          red1_o <= red1_r;
+          grn1_o <= grn1_r;
+          blu1_o <= blu1_r;
+          red2_o <= red_r;
+          grn2_o <= grn_r;
+          blu2_o <= blu_r;
         end if;
       end if;
     end if;
@@ -317,6 +302,7 @@ begin
   begin
     if rising_edge(clk_i) then
       if rst_i = YES then
+        newThresh_r <= NO;
         addr_r <= 0;
         row_r <= 0;
         col_r <= 0;
@@ -325,13 +311,15 @@ begin
         latch_r <= LO;
       elsif enbl_r = YES then
         clk_r <= not clk_r; -- Toggle output clock at half of input clock frequency.
+        newThresh_r <= NO;
         if clk_r = HI then -- Output clock is about to go low.
           latch_r <= LO;
           col_r <= col_r + 1;
           addr_r <= addr_r + 1;
           if col_r = NCOLS_C - 1 then
+            newThresh_r <= YES;
             col_r <= 0;
-            addr_r <= addr_r - NCOLS_C + 1;
+            addr_r <= addr_r - 2*NCOLS_C + 1;
             rowRpt_r <= rowRpt_r + 1;
             if rowRpt_r = NROW_REPEAT_C - 1 then
               rowRpt_r <= 0;
@@ -344,6 +332,7 @@ begin
             end if;
           end if;
         else -- Output clock is about to go high.
+          addr_r <= addr_r + 1;
           latch_r <= LO;
           if col_r = NCOLS_C - 1 then
             latch_r <= HI;
@@ -363,13 +352,13 @@ begin
   
   -- latch_o <= latch_r;  
   uLtchDly: DelayLine
-    generic map(NUM_DELAY_CYCLES_G => 2)
+    generic map(NUM_DELAY_CYCLES_G => 4)
     port map(clk_i=>clk_i, cke_i=>enbl_r, a_i=>latch_r, aDelayed_o=>latch_o);
     
   -- row_o <= std_logic_vector(TO_UNSIGNED(row_r, row_o'length));  -- Output the active row to the display.
   row_s <= std_logic_vector(TO_UNSIGNED(row_r, row_o'length));
   uRowDly: DelayBus
-    generic map(NUM_DELAY_CYCLES_G => 4)
+    generic map(NUM_DELAY_CYCLES_G => 6)
     port map(clk_i=>clk_i, cke_i=>enbl_r, bus_i=>row_s, busDelayed_o=>row_o);
 
   oe_bo <= LO;                          -- Always keep the display enabled.
