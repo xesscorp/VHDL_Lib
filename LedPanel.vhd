@@ -29,10 +29,11 @@ use xess.CommonPckg.all;
 
 package LedPanelPckg is
 
+  -- Basic LED panel driver.
   component LedPanelDriver is
     generic (
-      FREQ_G         : real    := 12.0;    -- Master clock frequency (MHz).
-      REFRESH_RATE_G : real    := 2000.0;  -- Total panel refresh rate (Hz).
+      FREQ_G         : real    := 12.0;   -- Master clock frequency (MHz).
+      REFRESH_RATE_G : real    := 100.0;  -- Total panel refresh rate (Hz).
       NPANELS_G      : natural := 1;    -- Number of concatenated 32x32 panels.
       PANEL_WIDTH_G  : natural := 32;   -- Width of panel in columns of pixels.
       PANEL_HEIGHT_G : natural := 32    -- Height of panel in rows of pixels.
@@ -60,15 +61,16 @@ package LedPanelPckg is
       );
   end component;
 
+  -- LED panel driver with Wishbone interface.
   component WbLedPanelDriver is
     generic (
       FREQ_G         : real             := 96.0;  -- Master clock frequency (MHz).
-      REFRESH_RATE_G : real             := 2000.0;  -- Total panel refresh rate (Hz).
+      REFRESH_RATE_G : real             := 100.0;  -- Total panel refresh rate (Hz).
       NPANELS_G      : natural          := 1;  -- Number of concatenated 32x32 panels.
       PANEL_WIDTH_G  : natural          := 32;  -- Width of panel in columns of pixels.
       PANEL_HEIGHT_G : natural          := 32;  -- Height of panel in rows of pixels.
       COLOR_WIDTH_G  : natural          := 8;  -- Bit width of R, G, B color component fields.
-      VENDOR_ID_G    : std_logic_vector := x"FF";   -- Unknown.
+      VENDOR_ID_G    : std_logic_vector := x"FF";  -- Unknown.
       PRODUCT_ID_G   : std_logic_vector := x"FF"  -- Unknown.
       );
     port (
@@ -103,23 +105,22 @@ end package;
 
 
 
+--**********************************************************************
+-- Basic LED panel driver.
+--**********************************************************************
+
 library ieee, xess;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 use ieee.math_real.all;
 use xess.CommonPckg.all;
-use xess.RandPckg.all;
 use xess.DelayPckg.all;
---use xess.ClkGenPckg.all;
---use xess.MiscPckg.all;
 use work.XessBoardPckg.all;
---library unisim;
---use unisim.vcomponents.all;
 
 entity LedPanelDriver is
   generic (
     FREQ_G         : real    := 12.0;   -- Master clock frequency (MHz).
-    REFRESH_RATE_G : real    := 2000.0;  -- Total panel refresh rate (Hz).
+    REFRESH_RATE_G : real    := 100.0;  -- Total panel refresh rate (Hz).
     NPANELS_G      : natural := 1;      -- Number of concatenated 32x32 panels.
     PANEL_WIDTH_G  : natural := 32;     -- Width of panel in columns of pixels.
     PANEL_HEIGHT_G : natural := 32      -- Height of panel in rows of pixels.
@@ -128,8 +129,8 @@ entity LedPanelDriver is
     -- Signals to/from FPGA fabric.
     clk_i   : in  std_logic;            -- Master clock input.
     rst_i   : in  std_logic := NO;      -- Active-high, synchronous reset.
-    rd_i    : in  std_logic := NO;   -- Active-high read-enable for pixel RAM.
-    wr_i    : in  std_logic := NO;   -- Active-high write-enable for pixel RAM.
+    rd_i    : in  std_logic := NO;  -- Active-high read-enable for pixel RAM.
+    wr_i    : in  std_logic := NO;  -- Active-high write-enable for pixel RAM.
     addr_i  : in  std_logic_vector;     -- Address for pixel read/write.
     pixel_i : in  std_logic_vector;     -- Input bus to pixel RAM.
     pixel_o : out std_logic_vector;     -- Output bus from pixel RAM.
@@ -152,48 +153,49 @@ architecture arch of LedPanelDriver is
   -- Constants and signals for the size of the LED panel in pixels.
   constant NCOLS_C   : natural := NPANELS_G * PANEL_WIDTH_G;  -- # cols wide.
   constant NROWS_C   : natural := PANEL_HEIGHT_G;      -- # of rows tall.
-  constant NPIXELS_C : natural := NCOLS_C * NROWS_C;
+  constant NPIXELS_C : natural := NCOLS_C * NROWS_C;   -- # of pixels.
   signal col_r       : natural range 0 to NCOLS_C - 1;  -- Current column.
   signal row_r       : natural range 0 to NROWS_C - 1;  -- Active row.
   signal row_s       : std_logic_vector(row_o'range);  -- Signal for converting row_r to std_logic_vector.
 
-  -- Compute clock for display circuitry based on number of pixels and the refresh rate.
-  constant DISPLAY_FREQ_C : real      := real(NPIXELS_C)/2.0 * REFRESH_RATE_G / 10.0**6;
-  constant CLK_DIVISOR_C  : natural   := integer(ceil(FREQ_G / DISPLAY_FREQ_C));
-  signal enbl_r           : std_logic := NO;  -- Clock-enable flag for dividing clock.
-
   -- Constants and signals for the pixel RAM.
-  signal addr_r  : natural range 0 to NPIXELS_C - 1;
+  signal addr_r     : natural range 0 to NPIXELS_C - 1;
   subtype Pixel_t is unsigned(pixel_i'range);  -- The pixel_i bus determines the width of pixels.
-  signal pixel_r : Pixel_t;  -- Register for the current pixel read from the RAM.
+  signal pixel_r    : Pixel_t;  -- Register for the current pixel read from the RAM.
   type PixelRam_t is array(0 to NPIXELS_C - 1) of Pixel_t;
-  signal pixelRam_r : PixelRam_t := (0 => X"FFFF", 128 => X"7c00", 256 => X"03e0", 384 => X"001F",
-                                     1 => X"7C1F", 129 => X"7fe0", 257 => X"03ff", 385 => X"FFFF",
-                                     62 => X"7C00", 63 => X"FFFF",
-                                     190 => X"001F", 191 => X"03E0",
-                                     others => X"0000");  -- Storage for RGB pixels going to LED panel.
+  signal pixelRam_r : PixelRam_t;  -- Storage for RGB pixels going to LED panel.
 
   -- Definitions and types for the color fields in each pixel.
   -- The pixel width is divided into three, equal-sized fields for the red,
   -- green and blue color components. In a 16-bit pixel, these
   -- would be arranged as 15-X(R4R3R2R1R0)(G4G3G2G1G0)(B4B3B2B1B0)-0.
-  constant COLOR_FLD_SZ : natural := pixel_i'length / 3;
-  subtype bluField_t is natural range COLOR_FLD_SZ*1-1 downto COLOR_FLD_SZ*0;
-  subtype grnField_t is natural range COLOR_FLD_SZ*2-1 downto COLOR_FLD_SZ*1;
-  subtype redField_t is natural range COLOR_FLD_SZ*3-1 downto COLOR_FLD_SZ*2;
-
-  -- Constants and signals for controlling how many times each row is displayed before
-  -- moving to the next row. Raising the number of repeats reduces the ghosting between rows.
-  constant NROW_REPEAT_C : natural := 8;
-  signal rowRpt_r        : natural range 0 to NROW_REPEAT_C - 1;
+  constant COLOR_FLD_SZ_C : natural := pixel_i'length / 3;
+  subtype bluField_t is natural range COLOR_FLD_SZ_C*1-1 downto COLOR_FLD_SZ_C*0;
+  subtype grnField_t is natural range COLOR_FLD_SZ_C*2-1 downto COLOR_FLD_SZ_C*1;
+  subtype redField_t is natural range COLOR_FLD_SZ_C*3-1 downto COLOR_FLD_SZ_C*2;
 
   -- Threshold that determines whether a given value of a color field will cause
   -- the associated LED to turn on.
-  signal thresh_s    : natural range 0 to 2**COLOR_FLD_SZ - 1;
-  signal randNum_s   : std_logic_vector(31 downto 0);  -- Random number used to set threshold.
-  signal newThresh_r : std_logic;  -- True when a new threshold value should be calculated.
-  -- Size the threshold to the size of the color component fields.
-  subtype threshField_t is natural range COLOR_FLD_SZ*1-1 downto 0;
+  constant THRESH_MAX_C : natural := 2**COLOR_FLD_SZ_C - 2;
+  signal thresh_r       : natural range 0 to THRESH_MAX_C;
+  signal updateThresh_r : std_logic;  -- True when a new threshold value should be calculated.
+
+  -- Constants and signals for controlling how many times each row is displayed before
+  -- moving to the next row. Raising the number of repeats reduces the ghosting between rows.
+  constant NROW_REPEAT_C : natural := THRESH_MAX_C+1;
+  signal rowRpt_r        : natural range 0 to NROW_REPEAT_C - 1;
+  signal blank_r         : std_logic;   -- Blanks the row of pixels when true.
+
+  -- Compute the clock divisor for the display circuitry based on 
+  --   1) the input clock freq, 
+  --   2) the number of pixels, 
+  --   3) the number of times each row is repeated,
+  --   4) the desired refresh rate,
+  --   5) the fact that two pixels enter the panel on each clock, and
+  --   6) that it takes two enable pulses to make one display clock pulse.
+  constant DISPLAY_FREQ_C : real      := real(NPIXELS_C)/2.0 * REFRESH_RATE_G / 1.0E6 * real(NROW_REPEAT_C);
+  constant CLK_DIVISOR_C  : natural   := integer(ceil(FREQ_G / (2.0 * DISPLAY_FREQ_C)));
+  signal enbl_r           : std_logic := NO;  -- Clock-enable flag for dividing clock.
 
   -- Registers for holding the clock, latch and RGB signals that go to the LED panel.
   signal clk_r                                       : std_logic;
@@ -207,17 +209,17 @@ begin
   begin
     if rising_edge(clk_i) then
       if wr_i = YES then
-        -- Write a single pixel to the pixel RAM.
+        -- Write a single pixel from the host to the pixel RAM.
         pixelRam_r(TO_INTEGER(unsigned(addr_i))) <= unsigned(pixel_i);
       elsif rd_i = YES then
-        -- Read a single pixel from the pixel RAM.
+        -- Read a single pixel from the pixel RAM to the host.
         pixel_o <= std_logic_vector(pixelRam_r(TO_INTEGER(unsigned(addr_i))));
       end if;
     end if;
   end process;
 
   -- Generate a clock-enable for the circuitry that displays the pixels on the LEDs.
-  -- This is used to slow the generation of pixels.
+  -- This is used to adjust the rate that pixels are generated.
   process(clk_i)
     variable enblCnt_v : natural range 0 to CLK_DIVISOR_C-1 := 0;
   begin
@@ -232,20 +234,22 @@ begin
     end if;
   end process;
 
-  -- Generate random numbers for the pixel threshold. Higher-intensity colors
-  -- will exceed the threshold more often than low-intensity colors, and
-  -- their LEDs will be on more often (thus increasing the intensity).
-  uRandThresh : RandGen
-    port map(
-      clk_i  => clk_i,
-      cke_i  => newThresh_r,
-      ld_i   => rst_i,
-      seed_i => X"FFFFFFFF",
-      rand_o => randNum_s
-      );
-  thresh_s <= TO_INTEGER(unsigned(randNum_s(threshField_t)));
+  -- Update the threshold that the pixel color components are compared to.
+  process(clk_i)
+  begin
+    if rising_edge(clk_i) then
+      if enbl_r = YES then
+        if updateThresh_r = YES then    -- Update threshold when requested.
+          thresh_r <= thresh_r + 1;     -- Update is just a simple increment.
+          if thresh_r = THRESH_MAX_C then  -- When threshold reaches its maximum, ...
+            thresh_r <= 0;              -- roll-over to zero.
+          end if;
+        end if;
+      end if;
+    end if;
+  end process;
 
-  -- This process reads the pixel RAMs and computes the RGB bits for the LED array.
+  -- This process reads the current pixel from the RAM.
   process (clk_i)
   begin
     if rising_edge(clk_i) then
@@ -254,7 +258,16 @@ begin
         -- Pixels at even addresses are in one half of the panel,
         -- and pixels at odd addresses are in the other half.
         pixel_r <= pixelRam_r(addr_r);
+      end if;
+    end if;
+  end process;
 
+  -- This process thresholds the colors of the pixel read from RAM
+  -- to compute the RGB bits for the LED array.
+  process (clk_i)
+  begin
+    if rising_edge(clk_i) then
+      if enbl_r = YES then
         -- Compare the color fields of the pixel against the threshold 
         -- to determine which LEDs should be active or not.
         red_r <= ZERO;  -- Start off assuming all LEDs will be off.
@@ -265,17 +278,17 @@ begin
         -- If this is the last time this row is displayed before moving to the next,
         -- then just leave all the LEDs off. (This helps prevent "ghosting" when 
         -- the next row of pixels is enabled.)
-        if rowRpt_r /= NROW_REPEAT_C - 1 then
+        if blank_r = NO then
           -- Compare the pixel field for the red color component to the threshold.
-          if TO_INTEGER(pixel_r(redField_t)) > thresh_s then
+          if TO_INTEGER(pixel_r(redField_t)) > thresh_r then
             red_r <= ONE;
           end if;
           -- Same thing for the green field of the upper pixel.
-          if TO_INTEGER(pixel_r(grnField_t)) > thresh_s then
+          if TO_INTEGER(pixel_r(grnField_t)) > thresh_r then
             grn_r <= ONE;
           end if;
           -- Same thing for the blue field of the upper pixel.
-          if TO_INTEGER(pixel_r(bluField_t)) > thresh_s then
+          if TO_INTEGER(pixel_r(bluField_t)) > thresh_r then
             blu_r <= ONE;
           end if;
         end if;
@@ -307,28 +320,44 @@ begin
     if rising_edge(clk_i) then
       if rst_i = YES then
         -- Reset values.
-        newThresh_r <= NO;
-        addr_r      <= 0;
-        clk_r       <= LO;
-        latch_r     <= LO;
-        row_r       <= 0;
-        col_r       <= 0;
-        rowRpt_r    <= 0;
+        clk_r          <= LO;  -- Must start LOW to allow two cycles to get both pixels before column is incremented.
+        updateThresh_r <= NO;
+        latch_r        <= LO;
+        addr_r         <= 0;
+        row_r          <= 0;
+        col_r          <= 0;
+        rowRpt_r       <= 0;
+        blank_r        <= NO;
+
       elsif enbl_r = YES then
-        clk_r       <= not clk_r;       -- Toggle output clock.
-        newThresh_r <= NO;
+        clk_r <= not clk_r;             -- Toggle output clock.
+
+        -- These are some default operations that get overridden lower down when necessary.
+        updateThresh_r <= NO;           -- Don't update pixel color threshold.
+        latch_r        <= LO;  -- The latch is low throughout most of a row of pixels.
+        addr_r         <= addr_r + 1;  -- Fetch next pixel from this address of pixel RAM.
+        blank_r        <= NO;           -- Don't blank this row of pixels.
+
+        -- If this is the last time this row is displayed before moving to the next,
+        -- then blank all the LEDs in the row. (This helps prevent "ghosting" when 
+        -- the next row of pixels is enabled.) The blank signal is activated one cycle
+        -- after the repeat counter reaches its max, but that's good because the 
+        -- comparator circuit needs a one clock cycle delay to stay sync'ed with the
+        -- sequencer.        
+        if rowRpt_r = NROW_REPEAT_C - 1 then
+          blank_r <= YES;
+        end if;
+
         if clk_r = HI then  -- Falling edge of output clock is about to occur.
-          latch_r <= LO;  -- The latch is always low when the output clock is low.
-          col_r   <= col_r + 1;  -- Proceed to the next column of the LED display row.
-          addr_r  <= addr_r + 1;  -- Fetch next pixel from this address of the pixel RAM.
+          col_r <= col_r + 1;  -- Proceed to the next column of the LED display row.
           if col_r = NCOLS_C - 1 then  -- Uh oh! We've reached the end of this row of pixels.
-            newThresh_r <= YES;  -- Generate a new random number for the pixel color intensity comparison.
-            col_r       <= 0;  -- Go back to the beginning column for a row of pixels.
-            addr_r      <= addr_r - 2*NCOLS_C + 1;  -- Go back to the beginning RAM address for this row.
-            rowRpt_r    <= rowRpt_r + 1;  -- Increment the repetition counter for this row of pixels.
+            updateThresh_r <= YES;  -- Generate a new threshold for the pixel color intensity comparison.
+            col_r          <= 0;  -- Go back to the beginning column for a row of pixels.
+            addr_r         <= addr_r - 2*NCOLS_C + 1;  -- Go back to the beginning RAM address for this row.
+            rowRpt_r       <= rowRpt_r + 1;  -- Increment the repetition counter for this row of pixels.
             if rowRpt_r = NROW_REPEAT_C - 1 then  -- Uh oh! We've repeated this row enough times.
-              row_r    <= row_r + 1;    -- Go to the next row of pixels.
               rowRpt_r <= 0;            -- Reset the row repetition counter.
+              row_r    <= row_r + 1;    -- Go to the next row of pixels.
               addr_r   <= addr_r + 1;  -- Go to the beginning RAM address for the next row of pixels.
               if row_r = NROWS_C - 1 then  -- Uh oh! Reached the last row of pixels for the display.
                 row_r  <= 0;            -- Go back to the starting row.
@@ -336,11 +365,9 @@ begin
               end if;
             end if;
           end if;
-        else              -- Rising edge of output clock is about to occur.
-          addr_r  <= addr_r + 1;  -- Fetch next pixel from this address of pixel RAM.
-          latch_r <= LO;  -- The latch is low throughout most of a row of pixels ...
+        else                -- Rising edge of output clock is about to occur.
           if col_r = NCOLS_C - 1 then
-            latch_r <= HI;  -- but raise the latch at the end of each row.
+            latch_r <= HI;  -- Raise the latch at the end of each row but only when the output clock is high.
           end if;
         end if;
       end if;
@@ -351,11 +378,12 @@ begin
   -- RGB values for the upper and lower pixels are computed. For this reason, the clock,
   -- latch and row signals are delayed by a few clock cycles so they line up with the RGB signals.
 
-  -- The clock signal is always toggling so there's no need to actually insert a delay.
+  -- Since the clock signal is always toggling, it looks the same whether it's delayed or not
+  -- so there's no need to actually insert a delay here.
   clk_o <= clk_r;
 
   -- Delay the latch signal.
-  uLtchDly : DelayLine
+  uLatchDly : DelayLine
     generic map(NUM_DELAY_CYCLES_G => 4)
     port map(clk_i                 => clk_i, cke_i => enbl_r, a_i => latch_r, aDelayed_o => latch_o);
 
@@ -372,6 +400,10 @@ end architecture;
 
 
 
+--**********************************************************************
+-- LED panel driver with a Wishbone interface.
+--**********************************************************************
+
 library ieee, xess;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
@@ -384,12 +416,12 @@ use xess.LedPanelPckg.all;
 entity WbLedPanelDriver is
   generic (
     FREQ_G         : real             := 96.0;  -- Master clock frequency (MHz).
-    REFRESH_RATE_G : real             := 2000.0;  -- Total panel refresh rate (Hz).
+    REFRESH_RATE_G : real             := 100.0;  -- Total panel refresh rate (Hz).
     NPANELS_G      : natural          := 1;  -- Number of concatenated 32x32 panels.
     PANEL_WIDTH_G  : natural          := 32;  -- Width of panel in columns of pixels.
     PANEL_HEIGHT_G : natural          := 32;  -- Height of panel in rows of pixels.
     COLOR_WIDTH_G  : natural          := 8;  -- Bit width of R, G, B color component fields.
-    VENDOR_ID_G    : std_logic_vector := x"FF";   -- Unknown.
+    VENDOR_ID_G    : std_logic_vector := x"FF";  -- Unknown.
     PRODUCT_ID_G   : std_logic_vector := x"FF"  -- Unknown.
     );
   port (
@@ -471,6 +503,10 @@ end architecture;
 
 
 
+--**********************************************************************
+-- Simple test circuit for the LED panel driver.
+--**********************************************************************
+
 library ieee, xess;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
@@ -501,12 +537,212 @@ entity LedPanelTest is
 end entity;
 
 architecture arch of LedPanelTest is
-  signal clk_s      : std_logic;
-  signal rst_s      : std_logic                     := NO;
-  signal rd_s       : std_logic                     := NO;
-  signal wr_s       : std_logic                     := NO;
-  signal addr_s     : std_logic_vector(15 downto 0) := (others => ZERO);
-  signal inPixel_s  : std_logic_vector(15 downto 0) := (others => ZERO);
+  signal rst_s              : std_logic                     := NO;
+  signal rd_s               : std_logic                     := NO;
+  signal wr_r               : std_logic                     := NO;
+  signal addr_s             : std_logic_vector(15 downto 0) := (others => ZERO);
+  signal addr_r, nextAddr_r : natural range 0 to 2047;
+  subtype Pixel_t is unsigned(15 downto 0);  -- The pixel_i bus determines the width of pixels.
+  signal pixel_r            : Pixel_t;  -- Register for the current pixel read from the RAM.
+  type PixelRam_t is array(0 to 1023) of Pixel_t;
+  signal pixelRam_r : PixelRam_t := (0           => X"FFFF", 128 => X"7c00", 256 => X"03e0", 384 => X"001F",
+                                     1           => X"7C1F", 129 => X"7fe0", 257 => X"03ff", 385 => X"FFFF",
+                                     62          => X"7C00", 61 => X"FFFF", 63 => X"FFFF",
+                                     190         => X"001F", 189 => X"7C00", 191 => X"03E0",
+                                     961 - 1     => X"0400" / 1024,
+                                     963 - 1     => X"0800" / 1024,
+                                     965 - 1     => X"0c00" / 1024,
+                                     967 - 1     => X"1000" / 1024,
+                                     969 - 1     => X"1400" / 1024,
+                                     971 - 1     => X"1800" / 1024,
+                                     973 - 1     => X"1c00" / 1024,
+                                     975 - 1     => X"2000" / 1024,
+                                     977 - 1     => X"2400" / 1024,
+                                     979 - 1     => X"2800" / 1024,
+                                     981 - 1     => X"2c00" / 1024,
+                                     983 - 1     => X"3000" / 1024,
+                                     985 - 1     => X"3400" / 1024,
+                                     987 - 1     => X"3800" / 1024,
+                                     989 - 1     => X"3c00" / 1024,
+                                     991 - 1     => X"4000" / 1024,
+                                     993 - 1     => X"4400" / 1024,
+                                     995 - 1     => X"4800" / 1024,
+                                     997 - 1     => X"4c00" / 1024,
+                                     999 - 1     => X"5000" / 1024,
+                                     1001 - 1    => X"5400" / 1024,
+                                     1003 - 1    => X"5800" / 1024,
+                                     1005 - 1    => X"5c00" / 1024,
+                                     1007 - 1    => X"6000" / 1024,
+                                     1009 - 1    => X"6400" / 1024,
+                                     1011 - 1    => X"6800" / 1024,
+                                     1013 - 1    => X"6c00" / 1024,
+                                     1015 - 1    => X"7000" / 1024,
+                                     1017 - 1    => X"7400" / 1024,
+                                     1019 - 1    => X"7800" / 1024,
+                                     1021 - 1    => X"7c00" / 1024,
+                                     1023 - 1    => X"FFFF",
+                                     961- 128- 1 => X"0400" / 32,
+                                     963- 128- 1 => X"0800" / 32,
+                                     965- 128- 1 => X"0c00" / 32,
+                                     967- 128- 1 => X"1000" / 32,
+                                     969- 128- 1 => X"1400" / 32,
+                                     971- 128- 1 => X"1800" / 32,
+                                     973- 128- 1 => X"1c00" / 32,
+                                     975- 128- 1 => X"2000" / 32,
+                                     977- 128- 1 => X"2400" / 32,
+                                     979- 128- 1 => X"2800" / 32,
+                                     981- 128- 1 => X"2c00" / 32,
+                                     983- 128- 1 => X"3000" / 32,
+                                     985- 128- 1 => X"3400" / 32,
+                                     987- 128- 1 => X"3800" / 32,
+                                     989- 128- 1 => X"3c00" / 32,
+                                     991- 128- 1 => X"4000" / 32,
+                                     993- 128- 1 => X"4400" / 32,
+                                     995- 128- 1 => X"4800" / 32,
+                                     997- 128- 1 => X"4c00" / 32,
+                                     999- 128- 1 => X"5000" / 32,
+                                     1001-128- 1 => X"5400" / 32,
+                                     1003-128- 1 => X"5800" / 32,
+                                     1005-128- 1 => X"5c00" / 32,
+                                     1007-128- 1 => X"6000" / 32,
+                                     1009-128- 1 => X"6400" / 32,
+                                     1011-128- 1 => X"6800" / 32,
+                                     1013-128- 1 => X"6c00" / 32,
+                                     1015-128- 1 => X"7000" / 32,
+                                     1017-128- 1 => X"7400" / 32,
+                                     1019-128- 1 => X"7800" / 32,
+                                     1021-128- 1 => X"7c00" / 32,
+                                     1023-128- 1 => X"FFFF",
+                                     961 -256- 1 => X"0400",
+                                     963 -256- 1 => X"0800",
+                                     965 -256- 1 => X"0c00",
+                                     967 -256- 1 => X"1000",
+                                     969 -256- 1 => X"1400",
+                                     971 -256- 1 => X"1800",
+                                     973 -256- 1 => X"1c00",
+                                     975 -256- 1 => X"2000",
+                                     977 -256- 1 => X"2400",
+                                     979 -256- 1 => X"2800",
+                                     981 -256- 1 => X"2c00",
+                                     983 -256- 1 => X"3000",
+                                     985 -256- 1 => X"3400",
+                                     987 -256- 1 => X"3800",
+                                     989 -256- 1 => X"3c00",
+                                     991 -256- 1 => X"4000",
+                                     993 -256- 1 => X"4400",
+                                     995 -256- 1 => X"4800",
+                                     997 -256- 1 => X"4c00",
+                                     999 -256- 1 => X"5000",
+                                     1001-256- 1 => X"5400",
+                                     1003-256- 1 => X"5800",
+                                     1005-256- 1 => X"5c00",
+                                     1007-256- 1 => X"6000",
+                                     1009-256- 1 => X"6400",
+                                     1011-256- 1 => X"6800",
+                                     1013-256- 1 => X"6c00",
+                                     1015-256- 1 => X"7000",
+                                     1017-256- 1 => X"7400",
+                                     1019-256- 1 => X"7800",
+                                     1021-256- 1 => X"7c00",
+                                     1023-256- 1 => X"FFFF",
+                                     961- 256    => X"0400" / 1024,
+                                     963- 256    => X"0800" / 1024,
+                                     965- 256    => X"0c00" / 1024,
+                                     967- 256    => X"1000" / 1024,
+                                     969- 256    => X"1400" / 1024,
+                                     971- 256    => X"1800" / 1024,
+                                     973- 256    => X"1c00" / 1024,
+                                     975- 256    => X"2000" / 1024,
+                                     977- 256    => X"2400" / 1024,
+                                     979- 256    => X"2800" / 1024,
+                                     981- 256    => X"2c00" / 1024,
+                                     983- 256    => X"3000" / 1024,
+                                     985- 256    => X"3400" / 1024,
+                                     987- 256    => X"3800" / 1024,
+                                     989- 256    => X"3c00" / 1024,
+                                     991- 256    => X"4000" / 1024,
+                                     993- 256    => X"4400" / 1024,
+                                     995- 256    => X"4800" / 1024,
+                                     997- 256    => X"4c00" / 1024,
+                                     999- 256    => X"5000" / 1024,
+                                     1001-256    => X"5400" / 1024,
+                                     1003-256    => X"5800" / 1024,
+                                     1005-256    => X"5c00" / 1024,
+                                     1007-256    => X"6000" / 1024,
+                                     1009-256    => X"6400" / 1024,
+                                     1011-256    => X"6800" / 1024,
+                                     1013-256    => X"6c00" / 1024,
+                                     1015-256    => X"7000" / 1024,
+                                     1017-256    => X"7400" / 1024,
+                                     1019-256    => X"7800" / 1024,
+                                     1021-256    => X"7c00" / 1024,
+                                     1023-256    => X"FFFF",
+                                     961- 128    => X"0400" / 32,
+                                     963- 128    => X"0800" / 32,
+                                     965- 128    => X"0c00" / 32,
+                                     967- 128    => X"1000" / 32,
+                                     969- 128    => X"1400" / 32,
+                                     971- 128    => X"1800" / 32,
+                                     973- 128    => X"1c00" / 32,
+                                     975- 128    => X"2000" / 32,
+                                     977- 128    => X"2400" / 32,
+                                     979- 128    => X"2800" / 32,
+                                     981- 128    => X"2c00" / 32,
+                                     983- 128    => X"3000" / 32,
+                                     985- 128    => X"3400" / 32,
+                                     987- 128    => X"3800" / 32,
+                                     989- 128    => X"3c00" / 32,
+                                     991- 128    => X"4000" / 32,
+                                     993- 128    => X"4400" / 32,
+                                     995- 128    => X"4800" / 32,
+                                     997- 128    => X"4c00" / 32,
+                                     999- 128    => X"5000" / 32,
+                                     1001-128    => X"5400" / 32,
+                                     1003-128    => X"5800" / 32,
+                                     1005-128    => X"5c00" / 32,
+                                     1007-128    => X"6000" / 32,
+                                     1009-128    => X"6400" / 32,
+                                     1011-128    => X"6800" / 32,
+                                     1013-128    => X"6c00" / 32,
+                                     1015-128    => X"7000" / 32,
+                                     1017-128    => X"7400" / 32,
+                                     1019-128    => X"7800" / 32,
+                                     1021-128    => X"7c00" / 32,
+                                     1023-128    => X"FFFF",
+                                     961         => X"0400",
+                                     963         => X"0800",
+                                     965         => X"0c00",
+                                     967         => X"1000",
+                                     969         => X"1400",
+                                     971         => X"1800",
+                                     973         => X"1c00",
+                                     975         => X"2000",
+                                     977         => X"2400",
+                                     979         => X"2800",
+                                     981         => X"2c00",
+                                     983         => X"3000",
+                                     985         => X"3400",
+                                     987         => X"3800",
+                                     989         => X"3c00",
+                                     991         => X"4000",
+                                     993         => X"4400",
+                                     995         => X"4800",
+                                     997         => X"4c00",
+                                     999         => X"5000",
+                                     1001        => X"5400",
+                                     1003        => X"5800",
+                                     1005        => X"5c00",
+                                     1007        => X"6000",
+                                     1009        => X"6400",
+                                     1011        => X"6800",
+                                     1013        => X"6c00",
+                                     1015        => X"7000",
+                                     1017        => X"7400",
+                                     1019        => X"7800",
+                                     1021        => X"7c00",
+                                     1023        => X"FFFF",
+                                     others      => X"0000");
+  signal inPixel_r  : std_logic_vector(15 downto 0);
   signal outPixel_s : std_logic_vector(15 downto 0);
 begin
 
@@ -516,15 +752,42 @@ begin
   uRst : ResetGenerator
     generic map(PULSE_DURATION_G => 10)
     port map(clk_i               => clk_i, trigger_i => YES, reset_o => rst_s);
+  
+  -- This process dumps the contents of the pixelRam into the LED panel driver.
+  process(clk_i)
+  begin
+    if rising_edge(clk_i) then
+      if rst_s = YES then
+        addr_r     <= 0;
+        nextAddr_r <= 0;
+        wr_r       <= NO;
+      elsif addr_r < 1024 then
+        inPixel_r  <= std_logic_vector(pixelRam_r(nextAddr_r));
+        addr_r     <= nextAddr_r;
+        nextAddr_r <= nextAddr_r + 1;
+        wr_r       <= YES;
+      else
+        wr_r <= NO;
+      end if;
+    end if;
+  end process;
+  addr_s <= std_logic_vector(TO_UNSIGNED(addr_r, 16));
 
   u0 : LedPanelDriver
+    generic map(
+      FREQ_G         => 12.0,
+      REFRESH_RATE_G => 100.0,
+      NPANELS_G      => 2,
+      PANEL_WIDTH_G  => 32,
+      PANEL_HEIGHT_G => 32
+      )
     port map(
       clk_i   => clk_i,
       rst_i   => rst_s,
       rd_i    => rd_s,
-      wr_i    => wr_s,
+      wr_i    => wr_r,
       addr_i  => addr_s,
-      pixel_i => inPixel_s,
+      pixel_i => inPixel_r,
       pixel_o => outPixel_s,
       clk_o   => clk_o,
       oe_bo   => oe_bo,
