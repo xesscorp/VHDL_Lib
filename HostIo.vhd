@@ -38,147 +38,148 @@ package HostIoPckg is
   constant READ_OPCODE_C  : std_logic_vector(1 downto 0) := "11";
 
   component BscanToHostIo is
-    generic (
-      FPGA_DEVICE_G    : FpgaFamily_t   := FPGA_FAMILY_C;  -- FPGA device type.
-      TAP_USER_INSTR_G : TapUserInstr_t := TAP_USER_INSTR_C  -- USER instruction this module responds to.
-      );
-    port (
-      -- Interface to HostIoHdrScanner.
-      inShiftDr_o : out std_logic;  -- True when USER JTAG instruction is active and the TAP FSM is in the Shift-DR state.
-      drck_o      : out std_logic;  -- Bit clock. TDI clocked in on rising edge, TDO sampled on falling edge.
-      tdi_o       : out std_logic;  -- Bit from the host to the FPGA application logic.
-      tdo_i       : in  std_logic := LO;  -- Bit from the FPGA application logic to the host.
-      tdoa_i      : in  std_logic := LO;  -- Bit from the FPGA application logic to the host.
-      tdob_i      : in  std_logic := LO;  -- Bit from the FPGA application logic to the host.
-      tdoc_i      : in  std_logic := LO;  -- Bit from the FPGA application logic to the host.
-      tdod_i      : in  std_logic := LO;  -- Bit from the FPGA application logic to the host.
-      tdoe_i      : in  std_logic := LO;  -- Bit from the FPGA application logic to the host.
-      tdof_i      : in  std_logic := LO;  -- Bit from the FPGA application logic to the host.
-      tdog_i      : in  std_logic := LO;  -- Bit from the FPGA application logic to the host.
-      tdoh_i      : in  std_logic := LO;  -- Bit from the FPGA application logic to the host.
-      tdoi_i      : in  std_logic := LO;  -- Bit from the FPGA application logic to the host.
-      tdoj_i      : in  std_logic := LO;  -- Bit from the FPGA application logic to the host.
-      tdok_i      : in  std_logic := LO;  -- Bit from the FPGA application logic to the host.
-      tdol_i      : in  std_logic := LO;  -- Bit from the FPGA application logic to the host.
-      tdom_i      : in  std_logic := LO;  -- Bit from the FPGA application logic to the host.
-      tdon_i      : in  std_logic := LO;  -- Bit from the FPGA application logic to the host.
-      tdoo_i      : in  std_logic := LO;  -- Bit from the FPGA application logic to the host.
-      tdop_i      : in  std_logic := LO;  -- Bit from the FPGA application logic to the host.
-      tdoq_i      : in  std_logic := LO;  -- Bit from the FPGA application logic to the host.
-      tdor_i      : in  std_logic := LO;  -- Bit from the FPGA application logic to the host.
-      tdos_i      : in  std_logic := LO;  -- Bit from the FPGA application logic to the host.
-      tdot_i      : in  std_logic := LO;  -- Bit from the FPGA application logic to the host.
-      tdou_i      : in  std_logic := LO;  -- Bit from the FPGA application logic to the host.
-      tdov_i      : in  std_logic := LO;  -- Bit from the FPGA application logic to the host.
-      tdow_i      : in  std_logic := LO;  -- Bit from the FPGA application logic to the host.
-      tdox_i      : in  std_logic := LO;  -- Bit from the FPGA application logic to the host.
-      tdoy_i      : in  std_logic := LO;  -- Bit from the FPGA application logic to the host.
-      tdoz_i      : in  std_logic := LO  -- Bit from the FPGA application logic to the host.
-      );
-  end component;
+  generic (
+    FPGA_DEVICE_G    : FpgaFamily_t   := FPGA_FAMILY_C;    -- FPGA device type.
+    TAP_USER_INSTR_G : TapUserInstr_t := TAP_USER_INSTR_C  -- USER instruction this module responds to.
+    );
+  port (
+    -- Interface to HostIoHdrScanner.
+    inShiftDr_o : out std_logic;  -- True when USER JTAG instruction is active and the TAP FSM is in the Shift-DR state.
+    drck_o      : out std_logic;  -- Bit clock. TDI clocked in on rising edge, TDO sampled on falling edge.
+    tdi_o       : out std_logic;  -- Bit from the host to the FPGA application logic.
+    tdo_i       : in  std_logic := LO;  -- Bit from the FPGA application logic to the host.
+    tdoa_i      : in  std_logic := LO;  -- Bit from the FPGA application logic to the host.
+    tdob_i      : in  std_logic := LO;  -- Bit from the FPGA application logic to the host.
+    tdoc_i      : in  std_logic := LO;  -- Bit from the FPGA application logic to the host.
+    tdod_i      : in  std_logic := LO;  -- Bit from the FPGA application logic to the host.
+    tdoe_i      : in  std_logic := LO;  -- Bit from the FPGA application logic to the host.
+    tdof_i      : in  std_logic := LO;  -- Bit from the FPGA application logic to the host.
+    tdog_i      : in  std_logic := LO;  -- Bit from the FPGA application logic to the host.
+    tdoh_i      : in  std_logic := LO;  -- Bit from the FPGA application logic to the host.
+    tdoi_i      : in  std_logic := LO;  -- Bit from the FPGA application logic to the host.
+    tdoj_i      : in  std_logic := LO;  -- Bit from the FPGA application logic to the host.
+    tdok_i      : in  std_logic := LO;  -- Bit from the FPGA application logic to the host.
+    tdol_i      : in  std_logic := LO;  -- Bit from the FPGA application logic to the host.
+    tdom_i      : in  std_logic := LO;  -- Bit from the FPGA application logic to the host.
+    tdon_i      : in  std_logic := LO;  -- Bit from the FPGA application logic to the host.
+    tdoo_i      : in  std_logic := LO;  -- Bit from the FPGA application logic to the host.
+    tdop_i      : in  std_logic := LO;  -- Bit from the FPGA application logic to the host.
+    tdoq_i      : in  std_logic := LO;  -- Bit from the FPGA application logic to the host.
+    tdor_i      : in  std_logic := LO;  -- Bit from the FPGA application logic to the host.
+    tdos_i      : in  std_logic := LO;  -- Bit from the FPGA application logic to the host.
+    tdot_i      : in  std_logic := LO;  -- Bit from the FPGA application logic to the host.
+    tdou_i      : in  std_logic := LO;  -- Bit from the FPGA application logic to the host.
+    tdov_i      : in  std_logic := LO;  -- Bit from the FPGA application logic to the host.
+    tdow_i      : in  std_logic := LO;  -- Bit from the FPGA application logic to the host.
+    tdox_i      : in  std_logic := LO;  -- Bit from the FPGA application logic to the host.
+    tdoy_i      : in  std_logic := LO;  -- Bit from the FPGA application logic to the host.
+    tdoz_i      : in  std_logic := LO  -- Bit from the FPGA application logic to the host.
+    );
+end component;
 
   component HostIoHdrScanner is
-    generic (
-      ID_G               : std_logic_vector := "11111111";  -- The ID this module responds to.
-      PYLD_CNTR_LENGTH_G : natural          := 32  -- Length of payload bit counter.
-      );
-    port (
-      -- Interface to BscanHostIo.
-      inShiftDr_i : in  std_logic;  -- True when USER JTAG instruction is active and the TAP FSM is in the Shift-DR state.
-      drck_i      : in  std_logic;  -- Bit clock. TDI clocked in on rising edge, TDO sampled on falling edge.
-      tdi_i       : in  std_logic;  -- Bit from the host to the FPGA application logic.
-      -- Interface to FPGA application logic.
-      pyldCntr_o  : out std_logic_vector(PYLD_CNTR_LENGTH_G-1 downto 0);  -- This counts down the number of payload bits still to be received.
-      active_o    : out std_logic  -- Tell the external circuitry it has been activated.
-      );
-  end component;
+  generic (
+    ID_G               : std_logic_vector := "11111111";  -- The ID this module responds to.
+    PYLD_CNTR_LENGTH_G : natural          := 32  -- Length of payload bit counter.
+    );
+  port (
+    -- Interface to BscanHostIo.
+    inShiftDr_i : in  std_logic;  -- True when USER JTAG instruction is active and the TAP FSM is in the Shift-DR state.
+    drck_i      : in  std_logic;  -- Bit clock. TDI clocked in on rising edge, TDO sampled on falling edge.
+    tdi_i       : in  std_logic;  -- Bit from the host to the FPGA application logic.
+    -- Interface to FPGA application logic.
+    pyldCntr_o  : out std_logic_vector(PYLD_CNTR_LENGTH_G-1 downto 0);  -- This counts down the number of payload bits still to be received.
+    active_o    : out std_logic  -- Tell the external circuitry it has been activated.
+    );
+end component;
 
   component RamCtrlSync is
-    port (
-      drck_i    : in  std_logic;        -- Clock from JTAG domain.
-      clk_i     : in  std_logic;        -- Clock from RAM domain.
-      ctrlIn_i  : in  std_logic;        -- Control signal from JTAG domain.
-      ctrlOut_o : out std_logic;        -- Control signal to RAM domain.
-      opBegun_i : in  std_logic := LO;  -- R/W operation begun signal from RAM domain.
-      doneIn_i  : in  std_logic := LO;  -- R/W operation done signal from RAM domain.
-      doneOut_o : out std_logic  -- R/W operation done signal to the JTAG domain. 
-      );
-  end component;
+  port (
+    drck_i    : in  std_logic;          -- Clock from JTAG domain.
+    clk_i     : in  std_logic;          -- Clock from RAM domain.
+    ctrlIn_i  : in  std_logic;          -- Control signal from JTAG domain.
+    ctrlOut_o : out std_logic;          -- Control signal to RAM domain.
+    opBegun_i : in  std_logic := LO;  -- R/W operation begun signal from RAM domain.
+    doneIn_i  : in  std_logic := LO;  -- R/W operation done signal from RAM domain.
+    doneOut_o : out std_logic  -- R/W operation done signal to the JTAG domain. 
+    );
+end component;
 
   component HostIoToRamCore is
-    generic (
-      ID_G               : std_logic_vector := "11111111";  -- The ID this module responds to.
-      PYLD_CNTR_LENGTH_G : natural          := 32;  -- Length of payload bit counter.
-      ADDR_INC_G         : integer          := 1  -- Add to address after each memory R/W operation.
-      );
-    port (
-      reset_i        : in  std_logic := LO;  -- Active-high reset signal.
-      -- Interface to BscanHostIo.
-      inShiftDr_i    : in  std_logic := LO;  -- true when USER JTAG instruction is active and the TAP FSM is in the Shift-DR state.
-      drck_i         : in  std_logic := LO;  -- Bit clock. TDI clocked in on rising edge, TDO sampled on falling edge.
-      tdi_i          : in  std_logic := LO;  -- Bit from the host to the FPGA application logic.
-      tdo_o          : out std_logic;  -- Bit from the FPGA application logic to the host.
-      -- Interface to the memory.
-      addr_o         : out std_logic_vector;      -- Address to memory.
-      wr_o           : out std_logic;   -- Write data to memory when high.
-      dataFromHost_o : out std_logic_vector;      -- Data written to memory.
-      rd_o           : out std_logic;   -- Read data from memory when high.
-      dataToHost_i   : in  std_logic_vector;      -- Data read from memory.
-      rwDone_i       : in  std_logic := HI  -- True when memory read/write operation is done.
-      );
-  end component;
+  generic (
+    ID_G               : std_logic_vector := "11111111";  -- The ID this module responds to.
+    PYLD_CNTR_LENGTH_G : natural          := 32;  -- Length of payload bit counter.
+    ADDR_INC_G         : integer          := 1  -- Add to address after each memory R/W operation.
+    );
+  port (
+    reset_i        : in  std_logic := LO;  -- Active-high reset signal.
+    -- Interface to BscanHostIo.
+    inShiftDr_i    : in  std_logic := LO;  -- true when USER JTAG instruction is active and the TAP FSM is in the Shift-DR state.
+    drck_i         : in  std_logic := LO;  -- Bit clock. TDI clocked in on rising edge, TDO sampled on falling edge.
+    tdi_i          : in  std_logic := LO;  -- Bit from the host to the FPGA application logic.
+    tdo_o          : out std_logic;  -- Bit from the FPGA application logic to the host.
+    -- Interface to the memory.
+    addr_o         : out std_logic_vector;      -- Address to memory.
+    wr_o           : out std_logic;     -- Write data to memory when high.
+    dataFromHost_o : out std_logic_vector;      -- Data written to memory.
+    rd_o           : out std_logic;     -- Read data from memory when high.
+    dataToHost_i   : in  std_logic_vector;      -- Data read from memory.
+    rwDone_i       : in  std_logic := HI  -- True when memory read/write operation is done.
+    );
+end component;
 
   component HostIoToRam is
-    generic (
-      ID_G               : std_logic_vector := "11111111";  -- The ID this module responds to.
-      PYLD_CNTR_LENGTH_G : natural          := 32;  -- Length of payload bit counter.
-      ADDR_INC_G         : integer          := 1;  -- Add to address after each memory R/W operation.
-      FPGA_DEVICE_G      : FpgaFamily_t     := FPGA_FAMILY_C;  -- FPGA device type.
-      TAP_USER_INSTR_G   : TapUserInstr_t   := TAP_USER_INSTR_C;  -- USER instruction this module responds to.
-      SIMPLE_G           : boolean          := false;  -- If true, include BscanToHostIo module in this module.
-      SYNC_G             : boolean          := true  -- If true, sync this module with the memory clock domain.
-      );
-    port (
-      reset_i        : in  std_logic := LO;  -- Active-high reset signal.
-      -- Interface to BscanHostIo.
-      inShiftDr_i    : in  std_logic := LO;  -- true when USER JTAG instruction is active and the TAP FSM is in the Shift-DR state.
-      drck_i         : in  std_logic := LO;  -- Bit clock. TDI clocked in on rising edge, TDO sampled on falling edge.
-      tdi_i          : in  std_logic := LO;  -- Bit from the host to the memory.
-      tdo_o          : out std_logic;   -- Bit from the memory to the host.
-      -- Interface to the memory.
-      clk_i          : in  std_logic := LO;  -- Clock from FPGA application logic. 
-      addr_o         : out std_logic_vector;       -- Address to memory.
-      wr_o           : out std_logic;   -- Write data to memory when high.
-      dataFromHost_o : out std_logic_vector;       -- Data written to memory.
-      rd_o           : out std_logic;   -- Read data from memory when high.
-      dataToHost_i   : in  std_logic_vector;       -- Data read from memory.
-      opBegun_i      : in  std_logic := LO;  -- High when memory read/write operation has begun.
-      done_i         : in  std_logic := LO  -- High when memory read/write operation is done.
-      );
-  end component;
+  generic (
+    ID_G               : std_logic_vector := "11111111";  -- The ID this module responds to.
+    PYLD_CNTR_LENGTH_G : natural          := 32;  -- Length of payload bit counter.
+    ADDR_INC_G         : integer          := 1;  -- Add to address after each memory R/W operation.
+    FPGA_DEVICE_G      : FpgaFamily_t     := FPGA_FAMILY_C;  -- FPGA device type.
+    TAP_USER_INSTR_G   : TapUserInstr_t   := TAP_USER_INSTR_C;  -- USER instruction this module responds to.
+    SIMPLE_G           : boolean          := false;  -- If true, include BscanToHostIo module in this module.
+    SYNC_G             : boolean          := true;  -- If true, sync this module with the memory clock domain.
+    SINGLE_CYCLE_G     : boolean          := false -- If true, sync this module and RAM ops complete in 1 cycle.
+    );
+  port (
+    reset_i        : in  std_logic := LO;  -- Active-high reset signal.
+    -- Interface to BscanHostIo.
+    inShiftDr_i    : in  std_logic := LO;  -- true when USER JTAG instruction is active and the TAP FSM is in the Shift-DR state.
+    drck_i         : in  std_logic := LO;  -- Bit clock. TDI clocked in on rising edge, TDO sampled on falling edge.
+    tdi_i          : in  std_logic := LO;  -- Bit from the host to the memory.
+    tdo_o          : out std_logic;     -- Bit from the memory to the host.
+    -- Interface to the memory.
+    clk_i          : in  std_logic := LO;  -- Clock from FPGA application logic. 
+    addr_o         : out std_logic_vector;       -- Address to memory.
+    wr_o           : out std_logic;     -- Write data to memory when high.
+    dataFromHost_o : out std_logic_vector;       -- Data written to memory.
+    rd_o           : out std_logic;     -- Read data from memory when high.
+    dataToHost_i   : in  std_logic_vector;       -- Data read from memory.
+    opBegun_i      : in  std_logic := LO;  -- High when memory read/write operation has begun.
+    done_i         : in  std_logic := LO  -- High when memory read/write operation is done.
+    );
+end component;
 
   component HostIoToDut is
-    generic (
-      ID_G                 : std_logic_vector := "11111111";  -- The ID this module responds to.
-      PYLD_CNTR_LENGTH_G   : natural          := 32;  -- Length of payload bit counter.
-      FPGA_DEVICE_G        : FpgaFamily_t     := FPGA_FAMILY_C;  -- FPGA device type.
-      TAP_USER_INSTR_G     : TapUserInstr_t   := TAP_USER_INSTR_C;  -- USER instruction this module responds to.
-      SIMPLE_G             : boolean          := false;  -- If true, include BscanToHostIo module in this module.
-      OUTPUT_RESET_VALUE_G : std_logic        := LO  -- Value assigned to vectorToDut_o outputs upon reset.
-      );
-    port (
-      reset_i         : in  std_logic := LO;  -- Active-high reset signal.
-      -- Interface to BscanHostIo.
-      inShiftDr_i     : in  std_logic := LO;  -- True when USER JTAG instruction is active and the TAP FSM is in the Shift-DR state.
-      drck_i          : in  std_logic := LO;  -- Bit clock. TDI clocked in on rising edge, TDO sampled on falling edge.
-      tdi_i           : in  std_logic := LO;  -- Bit from the host to the DUT.
-      tdo_o           : out std_logic;  -- Bit from the DUT to the host.
-      -- Interface to DUT.
-      clkToDut_o      : out std_logic;  -- Rising edge clock signals arrival of vector to DUT.
-      vectorFromDut_i : in  std_logic_vector;  -- Gather inputs to send back to host thru this bus.
-      vectorToDut_o   : out std_logic_vector  -- Output test vector from the host to DUT thru this bus.
-      );
-  end component;
+  generic (
+    ID_G                 : std_logic_vector := "11111111";  -- The ID this module responds to.
+    PYLD_CNTR_LENGTH_G   : natural          := 32;  -- Length of payload bit counter.
+    FPGA_DEVICE_G        : FpgaFamily_t     := FPGA_FAMILY_C;  -- FPGA device type.
+    TAP_USER_INSTR_G     : TapUserInstr_t   := TAP_USER_INSTR_C;  -- USER instruction this module responds to.
+    SIMPLE_G             : boolean          := false;  -- If true, include BscanToHostIo module in this module.
+    OUTPUT_RESET_VALUE_G : std_logic        := LO  -- Value assigned to vectorToDut_o outputs upon reset.
+    );
+  port (
+    reset_i         : in  std_logic := LO;  -- Active-high reset signal.
+    -- Interface to BscanHostIo.
+    inShiftDr_i     : in  std_logic := LO;  -- True when USER JTAG instruction is active and the TAP FSM is in the Shift-DR state.
+    drck_i          : in  std_logic := LO;  -- Bit clock. TDI clocked in on rising edge, TDO sampled on falling edge.
+    tdi_i           : in  std_logic := LO;  -- Bit from the host to the DUT.
+    tdo_o           : out std_logic;    -- Bit from the DUT to the host.
+    -- Interface to DUT.
+    clkToDut_o      : out std_logic;  -- Rising edge clock signals arrival of vector to DUT.
+    vectorFromDut_i : in  std_logic_vector;  -- Gather inputs to send back to host thru this bus.
+    vectorToDut_o   : out std_logic_vector  -- Output test vector from the host to DUT thru this bus.
+    );
+end component;
 
 end package;
 
@@ -231,7 +232,7 @@ entity BscanToHostIo is
     tdow_i      : in  std_logic := LO;  -- Bit from the FPGA application logic to the host.
     tdox_i      : in  std_logic := LO;  -- Bit from the FPGA application logic to the host.
     tdoy_i      : in  std_logic := LO;  -- Bit from the FPGA application logic to the host.
-    tdoz_i      : in  std_logic := LO  -- Bit from the FPGA application logic to the host.
+    tdoz_i      : in  std_logic := LO   -- Bit from the FPGA application logic to the host.
     );
 end entity;
 
@@ -712,7 +713,8 @@ entity HostIoToRam is
     FPGA_DEVICE_G      : FpgaFamily_t     := FPGA_FAMILY_C;  -- FPGA device type.
     TAP_USER_INSTR_G   : TapUserInstr_t   := TAP_USER_INSTR_C;  -- USER instruction this module responds to.
     SIMPLE_G           : boolean          := false;  -- If true, include BscanToHostIo module in this module.
-    SYNC_G             : boolean          := true  -- If true, sync this module with the memory clock domain.
+    SYNC_G             : boolean          := true;  -- If true, sync this module with the memory clock domain.
+    SINGLE_CYCLE_G     : boolean          := false -- If true, sync this module and RAM ops complete in 1 cycle.
     );
   port (
     reset_i        : in  std_logic := LO;  -- Active-high reset signal.
@@ -736,11 +738,13 @@ end entity;
 
 architecture arch of HostIoToRam is
   -- Internal memory signals.
-  signal wr_s         : std_logic;
-  signal rd_s         : std_logic;
+  signal wr_s, wr1_s  : std_logic;
+  signal rd_s, rd1_s  : std_logic;
   signal wrDone_s     : std_logic;
   signal rdDone_s     : std_logic;
   signal rwDone_s     : std_logic;
+  signal done_s       : std_logic;
+  signal opBegun_s    : std_logic;
   signal dataToHost_r : std_logic_vector(dataToHost_i'range);
   signal dataToHost_s : std_logic_vector(dataToHost_i'range);
   -- Internal JTAG signals.
@@ -801,16 +805,17 @@ begin
       );
 
   -- Synchronize the JTAG interface to the memory clock domain.
-  USync : if SYNC_G = true generate
+  -- Sync also applies if RAM operations complete in a single clock cycle.
+  USync : if (SYNC_G = true) or (SINGLE_CYCLE_G = true) generate
   begin
     UWrRamCtrlSync : RamCtrlSync
       port map (
         drck_i    => drck_s,
         clk_i     => clk_i,
         ctrlIn_i  => wr_s,
-        ctrlOut_o => wr_o,
-        opBegun_i => opBegun_i,
-        doneIn_i  => done_i,
+        ctrlOut_o => wr1_s, -- Local copy of the write control.
+        opBegun_i => opBegun_s,
+        doneIn_i  => done_s,
         doneOut_o => wrDone_s
         );
 
@@ -819,32 +824,66 @@ begin
         drck_i    => drck_s,
         clk_i     => clk_i,
         ctrlIn_i  => rd_s,
-        ctrlOut_o => rd_o,
-        opBegun_i => opBegun_i,
-        doneIn_i  => done_i,
+        ctrlOut_o => rd1_s, -- Local copy of the read control.
+        opBegun_i => opBegun_s,
+        doneIn_i  => done_s,
         doneOut_o => rdDone_s
         );
 
-    -- Hold the data in a register so it doesn't change until the 
+    -- Only one read or write memory operation can be in-process at a time,
+    -- so OR their done signals together to create a unified
+    -- "memory operation done" signal for the HostIoToRamCore module.
+    rwDone_s <= rdDone_s or wrDone_s;
+
+    -- Send the synced R/W control signals to the attached RAM, but we can
+    -- also use the local copies to generated a done signal as shown below.
+    rd_o <= rd1_s;
+    wr_o <= wr1_s;
+
+    -- If the RAM can complete read and write operations in a single cycle,
+    -- then there's no need for a done acknowledgment signal from the RAM, so 
+    -- create a fake one from the read or write signals sent to the RAM.
+    USingleCycle : if SINGLE_CYCLE_G = true generate
+    begin
+      opBegun_s <= LO; -- No need of an "operation begun" signal with single-cycle ops.
+
+      -- Create a fake done signal that goes high as soon as either read or
+      -- write signal to the RAM is activated. This will cause the RamCtrlSync
+      -- modules to lower the read/write signals and clear the done signal
+      -- on the next clock cycle.
+      process(clk_i)
+      begin
+        if rising_edge(clk_i) then
+          done_s <= rd1_s or wr1_s;
+        end if;
+      end process;
+    end generate;
+
+    -- If the attached RAM requires more than one cycle to complete a R/W
+    -- operation, then use the external done and operation-begun signals
+    -- inputs. External logic has to generate these based on the 
+    -- characteristics of the RAM.
+    UMultiCycle : if SINGLE_CYCLE_G = false generate
+      opBegun_s <= opBegun_i;
+      done_s <= done_i;
+    end generate;
+
+    -- When the done signal is activated on a read operation, store the data
+    --  from the RAM in a register so it doesn't change until the 
     -- slower host has a chance to read it.
     process(clk_i)
     begin
       if rising_edge(clk_i) then
-        if (rd_s = YES) and (done_i = YES) then
+        if (rd_s = YES) and (done_s = YES) then
           dataToHost_r <= dataToHost_i;
         end if;
       end if;
     end process;
     dataToHost_s <= dataToHost_r;
-
-    -- Only one read or write memory operation can be in-process at a time,
-    -- so OR their done signals together to create a unified
-    -- "memory operation done" signal.
-    rwDone_s <= rdDone_s or wrDone_s;
   end generate;
 
   -- Don't synchronize the JTAG interface to the memory clock domain.
-  UUnsync : if SYNC_G = false generate
+  UUnsync : if SYNC_G = false and SINGLE_CYCLE_G = false generate
   begin
     rwDone_s     <= done_i;
     rd_o         <= rd_s;
@@ -1139,7 +1178,7 @@ architecture Behavioral of hostio_test is
 begin
 
   -- Generate a faster clock from the 12 MHz clock for the FPGA application logic.
-  UClkGen : ClkGen generic map (CLK_MUL_G => 3, CLK_DIV_G => 3) port map (I => fpgaClk_i, O => clk_s);
+  UClkGen : ClkGen generic map (CLK_MUL_G => 25, CLK_DIV_G => 3) port map (I => fpgaClk_i, O => clk_s);
 
   -- This is the main entry point for the JTAG signals that communicate with this design.
   UBscanToHostIo : BscanToHostIo
@@ -1147,17 +1186,18 @@ begin
       inShiftDr_o => inShiftDr_s,  -- True when bits are shifting between the PC host and the FPGA.
       drck_o      => drck_s,            -- Bit shift clock.
       tdi_o       => tdi_s,             -- Bits from the host PC.
-      tdo_i       => tdo_s              -- Bits that go back to the host PC.
+      tdoa_i      => tdoReg_s,          -- Bits from single register.
+      tdob_i      => tdoBram_s,         -- Bits from block RAM.
+      tdoc_i      => tdoCntr_s,         -- Bits from counter.
+      tdod_i      => tdoCntr_s,         -- Bits from counter.
+      tdoe_i      => tdoSub_s           -- Bits from subtractor.
       );
-
-  -- OR the bits from all the user's modules and send them back to the PC.
-  -- (Non-selected modules pull their TDO outputs low, so only bits from the active module are transferred.)
-  tdo_s <= tdoReg_s or tdoBram_s or tdoCntr_s or tdoSub_s;
 
   -- This module interfaces a single register to the JTAG port so that it can be read/written by the PC host.
   UHostIoToReg : HostIoToRam
     generic map (
-      ID_G => "00000001"  -- The identifier used by the PC host to access this module.
+      ID_G => "00000001",  -- The identifier used by the PC host to access this module.
+      SINGLE_CYCLE_G => true
       )
     port map (
       -- Connections to the JTAG signals.
@@ -1186,7 +1226,8 @@ begin
   -- This module interfaces a block RAM to the JTAG port so that it can be read/written by the PC host.
   UHostIoToBram : HostIoToRam
     generic map (
-      ID_G => "00000010"  -- The identifier used by the PC host to access this module.
+      ID_G => "00000010", -- The identifier used by the PC host to access this module.
+      SINGLE_CYCLE_G => true
       )
     port map (
       inShiftDr_i    => inShiftDr_s,
