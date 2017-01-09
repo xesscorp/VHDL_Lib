@@ -158,6 +158,7 @@ begin
         if trigger_i = HI and prevTrigger_r = LO then
           lockoutCnt_v := LOCKOUT_TIME_C;
           pulseCnt_v   := PULSE_WIDTH_C;
+          pulse_o      <= HI;
         end if;
       end if;
       prevTrigger_r <= trigger_i;
